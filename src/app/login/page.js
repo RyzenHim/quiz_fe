@@ -1,6 +1,8 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState } from "react";
+
 
 export default function Login() {
   const [data, setData] = useState({
@@ -9,6 +11,8 @@ export default function Login() {
   });
 
   const [loading, setLoading] = useState(false);
+  const router = useRouter();
+
 
   const handleChange = (e) => {
     setData({
@@ -23,8 +27,9 @@ export default function Login() {
 
     setTimeout(() => {
       setLoading(false);
-      alert("Login Successful 🚀");
-    }, 1500);
+      
+      router.push("/teacher-dashboard/students");
+    },);
   };
 
   return (
