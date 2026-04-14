@@ -1,180 +1,137 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useAppContext } from "../../../components/app-provider";
+import api from "../../../lib/api";
 
-export default function Skills() {
+export default function SkillsPage() {
+  const { auth } = useAppContext();
   const [skills, setSkills] = useState([]);
-  const [showDrawer, setShowDrawer] = useState(false);
-  const [search, setSearch] = useState("");
-
+  const [message, setMessage] = useState("");
   const [form, setForm] = useState({
     name: "",
-    level: "",
+    description: "",
+    topicsText: "",
   });
 
-  // change
-  const handleChange = (key, value) => {
-    setForm({ ...form, [key]: value });
+  const token = auth?.token;
+  const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
+  const loadData = async () => {
+    const response = await api.get("/skills", { headers });
+    setSkills(response.data.skills || []);
   };
 
-  // add skill
-  const handleSubmit = (e) => {
-    e.preventDefault();
+  useEffect(() => {
+    if (!token) {
+      return;
+    }
 
-    const newSkill = {
-      ...form,
-      id: Date.now(),
+    const run = async () => {
+      try {
+        const effectHeaders = { Authorization: `Bearer ${token}` };
+        const response = await api.get("/skills", { headers: effectHeaders });
+        setSkills(response.data.skills || []);
+      } catch {
+        console.error("Unable to load skills.");
+      }
     };
 
-    setSkills([newSkill, ...skills]);
-    setShowDrawer(false);
+    run();
+  }, [token]);
 
-    setForm({
-      name: "",
-      level: "",
-    });
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setMessage("");
+    try {
+      const topics = form.topicsText
+        .split(",")
+        .map((topic) => topic.trim())
+        .filter(Boolean)
+        .map((title) => ({ title }));
+
+      await api.post(
+        "/skills",
+        {
+          name: form.name,
+          description: form.description,
+          topics,
+        },
+        { headers }
+      );
+
+      setForm({
+        name: "",
+        description: "",
+        topicsText: "",
+      });
+      setMessage("Skill created successfully.");
+      await loadData();
+    } catch (error) {
+      setMessage(error.response?.data?.message || "Unable to create skill.");
+    }
   };
 
-  // delete
-  const handleDelete = (id) => {
-    setSkills(skills.filter((s) => s.id !== id));
+  const handleDelete = async (skillId) => {
+    await api.delete(`/skills/${skillId}`, { headers });
+    await loadData();
   };
-
-  // search
-  const filtered = skills.filter((s) =>
-    s.name.toLowerCase().includes(search.toLowerCase())
-  );
 
   return (
-    <div>
-      {/* Top */}
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-gray-800">Skills 💻</h1>
+    <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+      <section className="surface-card rounded-[24px] p-6">
+        <h1 className="text-3xl font-semibold">Skills</h1>
+        <div className="mt-6 space-y-4">
+          {skills.length === 0 ? (
+            <p className="text-sm text-[var(--muted)]">No skills yet.</p>
+          ) : (
+            skills.map((skill) => (
+              <div key={skill._id} className="surface-soft rounded-[20px] p-5">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <h3 className="text-xl font-semibold">{skill.name}</h3>
+                    <p className="mt-1 text-sm text-[var(--muted)]">
+                      Topics: {(skill.topics || []).map((topic) => topic.title).join(", ") || "None"}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(skill._id)}
+                    className="rounded-xl bg-red-500 px-3 py-2 text-sm text-white"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </section>
 
-        <button
-          onClick={() => setShowDrawer(true)}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg shadow"
-        >
-          + Add Skill
-        </button>
-      </div>
-
-      {/* Search */}
-      <input
-        type="text"
-        placeholder="Search skill..."
-        className="mb-4 w-full border px-3 py-2 rounded-lg"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-      />
-
-      {/* Table */}
-      <div className="bg-white rounded-xl shadow p-4">
-        {skills.length === 0 ? (
-          <p className="text-center text-gray-500 py-10">
-            No skills added yet 🚀
-          </p>
-        ) : (
-          <table className="w-full text-left">
-            <thead>
-              <tr className="border-b">
-                <th>Skill Name</th>
-                <th>Level</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {filtered.map((s) => (
-                <tr key={s.id} className="border-b">
-                  <td>{s.name}</td>
-                  <td>{s.level}</td>
-
-                  <td className="space-x-2">
-                    <button className="bg-yellow-400 px-2 py-1 rounded">
-                      Edit
-                    </button>
-
-                    <button
-                      onClick={() => handleDelete(s.id)}
-                      className="bg-red-500 text-white px-2 py-1 rounded"
-                    >
-                      Delete
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
-
-      {/* DRAWER */}
-      {showDrawer && (
-        <>
-          {/* Overlay */}
-          <div
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40"
-            onClick={() => setShowDrawer(false)}
-          />
-
-          {/* Drawer */}
-          <div className="fixed top-0 right-0 w-[420px] h-full bg-white p-6 border-l z-50 overflow-y-auto shadow-2xl">
-            
-            <h2 className="text-2xl font-bold mb-6 text-gray-800">
-              Add Skill 💻
-            </h2>
-
-            <div className="space-y-4">
-              <Input
-                label="Skill Name"
-                value={form.name}
-                onChange={(v) => handleChange("name", v)}
-              />
-
-              <Input
-                label="Level (Beginner / Intermediate / Expert)"
-                value={form.level}
-                onChange={(v) => handleChange("level", v)}
-              />
-            </div>
-
-            {/* Buttons */}
-            <div className="flex gap-3 mt-6">
-              <button
-                onClick={handleSubmit}
-                className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold shadow"
-              >
-                Save
-              </button>
-
-              <button
-                onClick={() => setShowDrawer(false)}
-                className="flex-1 py-3 border rounded-xl bg-gray-700 hover:bg-gray-800"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </>
-      )}
+      <section className="surface-card rounded-[24px] p-6">
+        <h2 className="text-2xl font-semibold">Add skill</h2>
+        <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+          <FormInput label="Skill Name" value={form.name} onChange={(value) => setForm({ ...form, name: value })} />
+          <FormInput label="Description" value={form.description} onChange={(value) => setForm({ ...form, description: value })} />
+          <FormInput label="Topics (comma separated)" value={form.topicsText} onChange={(value) => setForm({ ...form, topicsText: value })} />
+          {message ? <p className="text-sm text-[var(--muted)]">{message}</p> : null}
+          <button type="submit" className="w-full rounded-2xl bg-[var(--accent)] px-4 py-3 font-semibold text-white">
+            Save skill
+          </button>
+        </form>
+      </section>
     </div>
   );
 }
 
-/* INPUT COMPONENT */
-function Input({ label, value, onChange, type = "text" }) {
+function FormInput({ label, value, onChange }) {
   return (
     <div>
-      <label className="block text-sm font-medium mb-1 text-gray-600">
-        {label}
-      </label>
-
+      <label className="mb-2 block text-sm font-medium">{label}</label>
       <input
-        type={type}
         value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-xl border px-4 py-3 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition"
+        onChange={(event) => onChange(event.target.value)}
+        className="w-full rounded-2xl border border-[var(--border)] bg-[var(--surface-strong)] px-4 py-3"
       />
     </div>
   );

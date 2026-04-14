@@ -1,191 +1,148 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useAppContext } from "../../../components/app-provider";
+import api from "../../../lib/api";
 
-export default function Batches() {
+export default function BatchesPage() {
+  const { auth } = useAppContext();
   const [batches, setBatches] = useState([]);
-  const [showDrawer, setShowDrawer] = useState(false);
-  const [search, setSearch] = useState("");
-
+  const [courses, setCourses] = useState([]);
+  const [message, setMessage] = useState("");
   const [form, setForm] = useState({
-    name: "",
-    course: "",
-    startDate: "",
+    batchName: "",
+    batchCode: "",
+    description: "",
+    courses: [],
   });
 
-  // change
-  const handleChange = (key, value) => {
-    setForm({ ...form, [key]: value });
+  const token = auth?.token;
+  const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
+  const loadData = async () => {
+    const [batchesRes, coursesRes] = await Promise.all([
+      api.get("/batches", { headers }),
+      api.get("/courses", { headers }),
+    ]);
+    setBatches(batchesRes.data.batches || []);
+    setCourses(coursesRes.data.courses || []);
   };
 
-  // add batch
-  const handleSubmit = (e) => {
-    e.preventDefault();
+  useEffect(() => {
+    if (!token) {
+      return;
+    }
 
-    const newBatch = {
-      ...form,
-      id: Date.now(),
+    const run = async () => {
+      try {
+        const effectHeaders = { Authorization: `Bearer ${token}` };
+        const [batchesRes, coursesRes] = await Promise.all([
+          api.get("/batches", { headers: effectHeaders }),
+          api.get("/courses", { headers: effectHeaders }),
+        ]);
+        setBatches(batchesRes.data.batches || []);
+        setCourses(coursesRes.data.courses || []);
+      } catch {
+        console.error("Unable to load batches.");
+      }
     };
 
-    setBatches([newBatch, ...batches]);
-    setShowDrawer(false);
+    run();
+  }, [token]);
 
-    setForm({
-      name: "",
-      course: "",
-      startDate: "",
-    });
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setMessage("");
+    try {
+      await api.post("/batches", form, { headers });
+      setForm({ batchName: "", batchCode: "", description: "", courses: [] });
+      setMessage("Batch created successfully.");
+      await loadData();
+    } catch (error) {
+      setMessage(error.response?.data?.message || "Unable to create batch.");
+    }
   };
 
-  // delete
-  const handleDelete = (id) => {
-    setBatches(batches.filter((b) => b.id !== id));
+  const handleDelete = async (batchId) => {
+    await api.delete(`/batches/soft-delete/${batchId}`, { headers });
+    await loadData();
   };
-
-  // search
-  const filtered = batches.filter((b) =>
-    b.name.toLowerCase().includes(search.toLowerCase())
-  );
 
   return (
-    <div>
-      {/* Top */}
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-gray-800">Batches 🏫</h1>
+    <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+      <section className="surface-card rounded-[24px] p-6">
+        <h1 className="text-3xl font-semibold">Batches</h1>
+        <div className="mt-6 space-y-4">
+          {batches.length === 0 ? (
+            <p className="text-sm text-[var(--muted)]">No batches yet.</p>
+          ) : (
+            batches.map((batch) => (
+              <div key={batch._id} className="surface-soft rounded-[20px] p-5">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <h3 className="text-xl font-semibold">{batch.batchName}</h3>
+                    <p className="mt-1 text-sm text-[var(--muted)]">
+                      Courses: {(batch.courses || []).map((course) => course.title).join(", ") || "None"}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(batch._id)}
+                    className="rounded-xl bg-red-500 px-3 py-2 text-sm text-white"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </section>
 
-        <button
-          onClick={() => setShowDrawer(true)}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg shadow"
-        >
-          + Add Batch
-        </button>
-      </div>
-
-      {/* Search */}
-      <input
-        type="text"
-        placeholder="Search batch..."
-        className="mb-4 w-full border px-3 py-2 rounded-lg"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-      />
-
-      {/* Table */}
-      <div className="bg-white rounded-xl shadow p-4">
-        {batches.length === 0 ? (
-          <p className="text-center text-gray-500 py-10">
-            No batches added yet 🚀
-          </p>
-        ) : (
-          <table className="w-full text-left">
-            <thead>
-              <tr className="border-b">
-                <th>Batch Name</th>
-                <th>Course</th>
-                <th>Start Date</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {filtered.map((b) => (
-                <tr key={b.id} className="border-b">
-                  <td>{b.name}</td>
-                  <td>{b.course}</td>
-                  <td>{b.startDate}</td>
-
-                  <td className="space-x-2">
-                    <button className="bg-yellow-400 px-2 py-1 rounded">
-                      Edit
-                    </button>
-
-                    <button
-                      onClick={() => handleDelete(b.id)}
-                      className="bg-red-500 text-white px-2 py-1 rounded"
-                    >
-                      Delete
-                    </button>
-                  </td>
-                </tr>
+      <section className="surface-card rounded-[24px] p-6">
+        <h2 className="text-2xl font-semibold">Add batch</h2>
+        <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+          <FormInput label="Batch Name" value={form.batchName} onChange={(value) => setForm({ ...form, batchName: value })} />
+          <FormInput label="Batch Code" value={form.batchCode} onChange={(value) => setForm({ ...form, batchCode: value })} />
+          <FormInput label="Description" value={form.description} onChange={(value) => setForm({ ...form, description: value })} />
+          <div>
+            <label className="mb-2 block text-sm font-medium">Courses</label>
+            <select
+              multiple
+              value={form.courses}
+              onChange={(event) =>
+                setForm({
+                  ...form,
+                  courses: Array.from(event.target.selectedOptions, (option) => option.value),
+                })
+              }
+              className="min-h-36 w-full rounded-2xl border border-[var(--border)] bg-[var(--surface-strong)] px-4 py-3"
+            >
+              {courses.map((course) => (
+                <option key={course._id} value={course._id}>
+                  {course.title}
+                </option>
               ))}
-            </tbody>
-          </table>
-        )}
-      </div>
-
-      {/* DRAWER */}
-      {showDrawer && (
-        <>
-          {/* Overlay */}
-          <div
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40"
-            onClick={() => setShowDrawer(false)}
-          />
-
-          {/* Drawer */}
-          <div className="fixed top-0 right-0 w-[420px] h-full bg-white p-6 border-l z-50 overflow-y-auto shadow-2xl">
-            
-            <h2 className="text-2xl font-bold mb-6 text-gray-800">
-              Add Batch 🏫
-            </h2>
-
-            <div className="space-y-4">
-              <Input
-                label="Batch Name"
-                value={form.name}
-                onChange={(v) => handleChange("name", v)}
-              />
-
-              <Input
-                label="Course"
-                value={form.course}
-                onChange={(v) => handleChange("course", v)}
-              />
-
-              <Input
-                label="Start Date"
-                type="date"
-                value={form.startDate}
-                onChange={(v) => handleChange("startDate", v)}
-              />
-            </div>
-
-            {/* Buttons */}
-            <div className="flex gap-3 mt-6">
-              <button
-                onClick={handleSubmit}
-                className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold shadow"
-              >
-                Save
-              </button>
-
-              <button
-                onClick={() => setShowDrawer(false)}
-                className="flex-1 py-3 border rounded-xl bg-gray-700 hover:bg-gray-800"
-              >
-                Cancel
-              </button>
-            </div>
+            </select>
           </div>
-        </>
-      )}
+          {message ? <p className="text-sm text-[var(--muted)]">{message}</p> : null}
+          <button type="submit" className="w-full rounded-2xl bg-[var(--accent)] px-4 py-3 font-semibold text-white">
+            Save batch
+          </button>
+        </form>
+      </section>
     </div>
   );
 }
 
-/* INPUT COMPONENT */
-function Input({ label, value, onChange, type = "text" }) {
+function FormInput({ label, value, onChange }) {
   return (
     <div>
-      <label className="block text-sm font-medium mb-1 text-gray-600">
-        {label}
-      </label>
-
+      <label className="mb-2 block text-sm font-medium">{label}</label>
       <input
-        type={type}
         value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-xl border px-4 py-3 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition"
+        onChange={(event) => onChange(event.target.value)}
+        className="w-full rounded-2xl border border-[var(--border)] bg-[var(--surface-strong)] px-4 py-3"
       />
     </div>
   );
