@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import api from "../lib/api";
 
 const AppContext = createContext(null);
@@ -16,38 +16,34 @@ const applyTheme = (theme) => {
 };
 
 export function AppProvider({ children }) {
-  const [auth, setAuth] = useState(() => {
-    if (typeof window === "undefined") {
-      return null;
-    }
+  const [auth, setAuth] = useState(null);
+  const [theme, setTheme] = useState("light");
+  const [isReady, setIsReady] = useState(false);
 
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : null;
-  });
-  const [theme, setTheme] = useState(() => {
-    if (typeof window === "undefined") {
-      return "light";
-    }
+  useEffect(() => {
+    const frameId = window.requestAnimationFrame(() => {
+      const raw = window.localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        setAuth(parsed);
+        setTheme(parsed.themePreference || "light");
+      }
+      setIsReady(true);
+    });
 
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      return "light";
-    }
-
-    const parsed = JSON.parse(raw);
-    return parsed.themePreference || "light";
-  });
+    return () => window.cancelAnimationFrame(frameId);
+  }, []);
 
   useEffect(() => {
     applyTheme(theme);
   }, [theme]);
 
-  const persistAuth = (nextAuth) => {
+  const persistAuth = useCallback((nextAuth) => {
     setAuth(nextAuth);
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(nextAuth));
-  };
+  }, []);
 
-  const login = (payload) => {
+  const login = useCallback((payload) => {
     const nextAuth = {
       token: payload.token,
       role: payload.role,
@@ -59,7 +55,7 @@ export function AppProvider({ children }) {
     persistAuth(nextAuth);
     setTheme(nextAuth.themePreference);
     applyTheme(nextAuth.themePreference);
-  };
+  }, [persistAuth]);
 
   const logout = () => {
     setAuth(null);
@@ -67,6 +63,24 @@ export function AppProvider({ children }) {
     applyTheme("light");
     window.localStorage.removeItem(STORAGE_KEY);
   };
+
+  const updateAuthUser = useCallback((user, overrides = {}) => {
+    setAuth((current) => {
+      if (!current) {
+        return current;
+      }
+
+      const nextAuth = {
+        ...current,
+        ...overrides,
+        user,
+        themePreference: overrides.themePreference || current.themePreference,
+      };
+
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(nextAuth));
+      return nextAuth;
+    });
+  }, []);
 
   const toggleTheme = async () => {
     const nextTheme = theme === "dark" ? "light" : "dark";
@@ -109,9 +123,10 @@ export function AppProvider({ children }) {
       value={{
         auth,
         theme,
-        isReady: true,
+        isReady,
         login,
         logout,
+        updateAuthUser,
         toggleTheme,
       }}
     >

@@ -1,31 +1,37 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f4efe6;
-  --surface: #fffaf1;
-  --surface-strong: #ffffff;
-  --foreground: #1f2937;
-  --muted: #5f6b7a;
-  --border: rgba(31, 41, 55, 0.12);
+  --background: #dce4f1;
+  --background-strong: #eaf0f8;
+  --surface: rgba(233, 239, 248, 0.92);
+  --surface-strong: rgba(244, 247, 252, 0.98);
+  --foreground: #203047;
+  --muted: #64748b;
+  --border: rgba(104, 124, 153, 0.18);
   --accent: #0f766e;
-  --accent-strong: #115e59;
-  --danger: #dc2626;
-  --sidebar: linear-gradient(180deg, #073b4c 0%, #0f172a 100%);
-  --shadow: 0 24px 80px rgba(15, 23, 42, 0.12);
+  --accent-strong: #0b5f59;
+  --danger: #c8454c;
+  --sidebar: linear-gradient(180deg, #133a59 0%, #0c1828 100%);
+  --shadow-soft: 16px 16px 34px rgba(153, 167, 191, 0.55), -12px -12px 30px rgba(255, 255, 255, 0.82);
+  --shadow-inset: inset 10px 10px 18px rgba(174, 186, 206, 0.36), inset -10px -10px 18px rgba(255, 255, 255, 0.9);
+  --shadow-elevated: 0 30px 70px rgba(73, 94, 128, 0.24);
 }
 
 html.dark {
-  --background: #09111f;
-  --surface: #0f1b2d;
-  --surface-strong: #14233a;
-  --foreground: #e5edf7;
-  --muted: #9bb0c9;
-  --border: rgba(229, 237, 247, 0.12);
-  --accent: #34d399;
-  --accent-strong: #10b981;
-  --danger: #f87171;
-  --sidebar: linear-gradient(180deg, #08121d 0%, #030712 100%);
-  --shadow: 0 24px 80px rgba(0, 0, 0, 0.35);
+  --background: #091522;
+  --background-strong: #0d1c2d;
+  --surface: rgba(16, 27, 42, 0.9);
+  --surface-strong: rgba(21, 35, 54, 0.95);
+  --foreground: #e7eef9;
+  --muted: #95a8c5;
+  --border: rgba(155, 179, 214, 0.12);
+  --accent: #4dd9bf;
+  --accent-strong: #2dc4a9;
+  --danger: #ff7e86;
+  --sidebar: linear-gradient(180deg, #071320 0%, #04070d 100%);
+  --shadow-soft: 16px 16px 32px rgba(3, 8, 18, 0.82), -10px -10px 24px rgba(24, 39, 60, 0.6);
+  --shadow-inset: inset 10px 10px 18px rgba(3, 8, 18, 0.72), inset -10px -10px 18px rgba(25, 43, 64, 0.55);
+  --shadow-elevated: 0 36px 80px rgba(0, 0, 0, 0.42);
 }
 
 @theme inline {
@@ -45,10 +51,12 @@ body {
 }
 
 body {
+  margin: 0;
   background:
-    radial-gradient(circle at top left, rgba(15, 118, 110, 0.18), transparent 28%),
-    radial-gradient(circle at bottom right, rgba(14, 165, 233, 0.12), transparent 24%),
-    var(--background);
+    radial-gradient(circle at top left, rgba(94, 234, 212, 0.18), transparent 24%),
+    radial-gradient(circle at 80% 20%, rgba(96, 165, 250, 0.14), transparent 22%),
+    radial-gradient(circle at bottom right, rgba(15, 118, 110, 0.12), transparent 26%),
+    linear-gradient(180deg, var(--background-strong) 0%, var(--background) 100%);
   color: var(--foreground);
   font-family: "Segoe UI", "Trebuchet MS", sans-serif;
   transition: background-color 0.25s ease, color 0.25s ease;
@@ -63,15 +71,32 @@ a {
   min-height: 100vh;
 }
 
-.surface-card {
+.surface-card,
+.neo-panel {
   background: var(--surface);
-  border: 1px solid var(--border);
-  box-shadow: var(--shadow);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  box-shadow: var(--shadow-soft);
+  backdrop-filter: blur(18px);
+  transition: transform 0.28s ease, box-shadow 0.28s ease, border-color 0.28s ease;
 }
 
-.surface-soft {
-  background: color-mix(in srgb, var(--surface) 86%, transparent);
-  border: 1px solid var(--border);
+.surface-soft,
+.neo-soft {
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.34), rgba(255, 255, 255, 0.12));
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  box-shadow: var(--shadow-soft);
+  backdrop-filter: blur(14px);
+  transition: transform 0.24s ease, box-shadow 0.24s ease, border-color 0.24s ease;
+}
+
+.neo-panel:hover,
+.neo-soft:hover {
+  transform: translateY(-2px);
+}
+
+.neo-inset {
+  background: var(--surface-strong);
+  box-shadow: var(--shadow-inset);
 }
 
 .theme-transition {
@@ -79,7 +104,214 @@ a {
     background-color 0.25s ease,
     border-color 0.25s ease,
     color 0.25s ease,
-    box-shadow 0.25s ease;
+    box-shadow 0.25s ease,
+    transform 0.25s ease;
+}
+
+.neo-button,
+.neo-button-primary,
+.neo-button-danger,
+.neo-button-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  border-radius: 1rem;
+  padding: 0.85rem 1.15rem;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  font-weight: 600;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+}
+
+.neo-button:hover,
+.neo-button-primary:hover,
+.neo-button-danger:hover,
+.neo-button-ghost:hover {
+  transform: translateY(-1px) scale(1.01);
+}
+
+.neo-button:disabled,
+.neo-button-primary:disabled,
+.neo-button-danger:disabled,
+.neo-button-ghost:disabled {
+  cursor: not-allowed;
+  opacity: 0.56;
+  transform: none;
+}
+
+.neo-button {
+  background: var(--surface);
+  box-shadow: var(--shadow-soft);
+}
+
+.neo-button-primary {
+  color: white;
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-strong) 100%);
+  box-shadow: 0 18px 36px rgba(15, 118, 110, 0.28);
+}
+
+.neo-button-danger {
+  color: white;
+  background: linear-gradient(135deg, #df5965 0%, var(--danger) 100%);
+  box-shadow: 0 18px 36px rgba(200, 69, 76, 0.28);
+}
+
+.neo-button-ghost {
+  background: transparent;
+  box-shadow: none;
+}
+
+.neo-input {
+  width: 100%;
+  border-radius: 1.1rem;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.34);
+  box-shadow: var(--shadow-inset);
+  padding: 0.95rem 1rem;
+  color: var(--foreground);
+  outline: none;
+  backdrop-filter: blur(12px);
+}
+
+.neo-input:focus {
+  border-color: color-mix(in srgb, var(--accent) 42%, transparent);
+}
+
+.neo-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.8rem;
+  height: 2.8rem;
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.18);
+  box-shadow: var(--shadow-soft);
+  color: var(--accent);
+}
+
+.neo-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2rem;
+  padding: 0.4rem 0.85rem;
+  border-radius: 999px;
+  background: rgba(15, 118, 110, 0.12);
+  color: var(--accent);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(9, 21, 34, 0.28);
+  backdrop-filter: blur(14px);
+  opacity: 0;
+}
+
+.modal-card {
+  width: min(100%, 48rem);
+  max-height: calc(100vh - 2rem);
+  overflow: auto;
+  border-radius: 2rem;
+  padding: 1.5rem;
+  background: linear-gradient(145deg, rgba(243, 247, 252, 0.94), rgba(228, 235, 246, 0.9));
+  color: var(--foreground);
+  box-shadow: var(--shadow-elevated);
+  border: 1px solid rgba(255, 255, 255, 0.34);
+  opacity: 0;
+  transform: translateY(28px) scale(0.96);
+}
+
+html.dark .modal-card {
+  background: linear-gradient(145deg, rgba(16, 27, 42, 0.94), rgba(10, 18, 29, 0.92));
+}
+
+.modal-backdrop-open {
+  animation: modalBackdropIn 0.22s ease forwards;
+}
+
+.modal-backdrop-close {
+  animation: modalBackdropOut 0.2s ease forwards;
+}
+
+.modal-card-open {
+  animation: modalCardIn 0.24s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+.modal-card-close {
+  animation: modalCardOut 0.2s ease forwards;
+}
+
+.neo-toast {
+  border-radius: 1.5rem;
+  padding: 1rem 1.1rem;
+  background: rgba(244, 247, 252, 0.92);
+  box-shadow: var(--shadow-elevated);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  backdrop-filter: blur(18px);
+}
+
+.neo-toast.success {
+  border-left: 5px solid #0f766e;
+}
+
+.neo-toast.error {
+  border-left: 5px solid #c8454c;
+}
+
+.neo-toast.warning {
+  border-left: 5px solid #d97706;
+  animation: toastIn 0.26s ease;
+}
+
+@keyframes modalBackdropIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes modalBackdropOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes modalCardIn {
+  from {
+    opacity: 0;
+    transform: translateY(28px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes modalCardOut {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(18px) scale(0.98);
+  }
+}
+
+@keyframes toastIn {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 input,

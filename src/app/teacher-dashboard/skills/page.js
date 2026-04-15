@@ -1,138 +1,224 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Pencil, Plus, Trash2 } from "lucide-react";
 import { useAppContext } from "../../../components/app-provider";
 import api from "../../../lib/api";
+import {
+  ConfirmDialog,
+  EntityCard,
+  EntitySection,
+  InputField,
+  Modal,
+  PageHeader,
+  TextareaField,
+  Toast,
+} from "../../../components/ui-kit";
+
+const emptyForm = { name: "", description: "", topicsText: "" };
 
 export default function SkillsPage() {
   const { auth } = useAppContext();
-  const [skills, setSkills] = useState([]);
-  const [message, setMessage] = useState("");
-  const [form, setForm] = useState({
-    name: "",
-    description: "",
-    topicsText: "",
-  });
-
   const token = auth?.token;
   const headers = token ? { Authorization: `Bearer ${token}` } : {};
+  const [skills, setSkills] = useState([]);
+  const [deletedSkills, setDeletedSkills] = useState([]);
+  const [form, setForm] = useState(emptyForm);
+  const [editingId, setEditingId] = useState(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [deleteState, setDeleteState] = useState(null);
+  const [toast, setToast] = useState(null);
 
   const loadData = async () => {
-    const response = await api.get("/skills", { headers });
-    setSkills(response.data.skills || []);
+    const [activeRes, deletedRes] = await Promise.all([
+      api.get("/skills", { headers }),
+      api.get("/skills?deleted=true", { headers }),
+    ]);
+    setSkills(activeRes.data.skills || []);
+    setDeletedSkills(deletedRes.data.skills || []);
   };
 
   useEffect(() => {
-    if (!token) {
-      return;
-    }
-
-    const run = async () => {
-      try {
-        const effectHeaders = { Authorization: `Bearer ${token}` };
-        const response = await api.get("/skills", { headers: effectHeaders });
-        setSkills(response.data.skills || []);
-      } catch {
-        console.error("Unable to load skills.");
-      }
-    };
-
-    run();
+    if (!token) return;
+    loadData().catch(() => null);
   }, [token]);
+
+  const closeModal = () => {
+    setModalOpen(false);
+    setEditingId(null);
+    setForm(emptyForm);
+  };
+
+  const handleEdit = (skill) => {
+    setEditingId(skill._id);
+    setForm({
+      name: skill.name || "",
+      description: skill.description || "",
+      topicsText: (skill.topics || []).map((topic) => topic.title).join(", "),
+    });
+    setModalOpen(true);
+  };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    setMessage("");
     try {
       const topics = form.topicsText
         .split(",")
         .map((topic) => topic.trim())
         .filter(Boolean)
         .map((title) => ({ title }));
+      const payload = { name: form.name, description: form.description, topics };
 
-      await api.post(
-        "/skills",
-        {
-          name: form.name,
-          description: form.description,
-          topics,
-        },
-        { headers }
-      );
-
-      setForm({
-        name: "",
-        description: "",
-        topicsText: "",
-      });
-      setMessage("Skill created successfully.");
+      if (editingId) {
+        await api.put(`/skills/${editingId}`, payload, { headers });
+        setToast({ variant: "success", title: "Skill updated" });
+      } else {
+        await api.post("/skills", payload, { headers });
+        setToast({ variant: "success", title: "Skill created" });
+      }
+      closeModal();
       await loadData();
     } catch (error) {
-      setMessage(error.response?.data?.message || "Unable to create skill.");
+      setToast({
+        variant: "error",
+        title: "Unable to save skill",
+        description: error.response?.data?.message || "Please review the form and try again.",
+      });
     }
   };
 
-  const handleDelete = async (skillId) => {
-    await api.delete(`/skills/${skillId}`, { headers });
-    await loadData();
+  const confirmDelete = async () => {
+    if (!deleteState) {
+      return;
+    }
+    try {
+      if (deleteState.type === "hard") {
+        await api.delete(`/skills/hard-delete/${deleteState.id}`, { headers });
+      } else {
+        await api.delete(`/skills/soft-delete/${deleteState.id}`, { headers });
+      }
+      setToast({
+        variant: "warning",
+        title: deleteState.type === "hard" ? "Skill removed permanently" : "Skill moved to deleted",
+      });
+      setDeleteState(null);
+      await loadData();
+    } catch (error) {
+      setToast({
+        variant: "error",
+        title: "Delete failed",
+        description: error.response?.data?.message || "Unable to delete skill.",
+      });
+    }
   };
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
-      <section className="surface-card rounded-[24px] p-6">
-        <h1 className="text-3xl font-semibold">Skills</h1>
-        <div className="mt-6 space-y-4">
-          {skills.length === 0 ? (
-            <p className="text-sm text-[var(--muted)]">No skills yet.</p>
-          ) : (
-            skills.map((skill) => (
-              <div key={skill._id} className="surface-soft rounded-[20px] p-5">
-                <div className="flex items-center justify-between gap-4">
-                  <div>
-                    <h3 className="text-xl font-semibold">{skill.name}</h3>
-                    <p className="mt-1 text-sm text-[var(--muted)]">
-                      Topics: {(skill.topics || []).map((topic) => topic.title).join(", ") || "None"}
-                    </p>
-                  </div>
+    <>
+      <div className="space-y-6">
+        <PageHeader
+          eyebrow="Skills"
+          title="Shape topic libraries with softer, focused interactions"
+          description="Skill creation now lives in a dedicated modal so the page itself can stay calm and readable while editing."
+          action={
+            <button type="button" className="neo-button-primary" onClick={() => setModalOpen(true)}>
+              <Plus size={18} />
+              Add Skill
+            </button>
+          }
+        />
+
+        <div className="grid gap-6 xl:grid-cols-2">
+          <EntitySection title="Active Skills" items={skills} emptyText="No active skills found.">
+            {(skill) => (
+              <EntityCard
+                key={skill._id}
+                title={skill.name}
+                subtitle={(skill.topics || []).map((topic) => topic.title).join(", ") || "No topics"}
+                meta={skill.description || "No description"}
+                actions={
+                  <>
+                    <button type="button" className="neo-button" onClick={() => handleEdit(skill)}>
+                      <Pencil size={16} />
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      className="neo-button-danger"
+                      onClick={() => setDeleteState({ id: skill._id, type: "soft", label: skill.name })}
+                    >
+                      <Trash2 size={16} />
+                      Delete
+                    </button>
+                  </>
+                }
+              />
+            )}
+          </EntitySection>
+
+          <EntitySection title="Deleted Skills" items={deletedSkills} emptyText="No deleted skills.">
+            {(skill) => (
+              <EntityCard
+                key={skill._id}
+                title={skill.name}
+                subtitle={skill.description || "No description"}
+                meta="Deleted records"
+                actions={
                   <button
                     type="button"
-                    onClick={() => handleDelete(skill._id)}
-                    className="rounded-xl bg-red-500 px-3 py-2 text-sm text-white"
+                    className="neo-button-danger"
+                    onClick={() => setDeleteState({ id: skill._id, type: "hard", label: skill.name })}
                   >
-                    Delete
+                    <Trash2 size={16} />
+                    Delete Permanently
                   </button>
-                </div>
-              </div>
-            ))
-          )}
+                }
+              />
+            )}
+          </EntitySection>
         </div>
-      </section>
+      </div>
 
-      <section className="surface-card rounded-[24px] p-6">
-        <h2 className="text-2xl font-semibold">Add skill</h2>
-        <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-          <FormInput label="Skill Name" value={form.name} onChange={(value) => setForm({ ...form, name: value })} />
-          <FormInput label="Description" value={form.description} onChange={(value) => setForm({ ...form, description: value })} />
-          <FormInput label="Topics (comma separated)" value={form.topicsText} onChange={(value) => setForm({ ...form, topicsText: value })} />
-          {message ? <p className="text-sm text-[var(--muted)]">{message}</p> : null}
-          <button type="submit" className="w-full rounded-2xl bg-[var(--accent)] px-4 py-3 font-semibold text-white">
-            Save skill
-          </button>
+      <Modal
+        open={modalOpen}
+        onClose={closeModal}
+        title={editingId ? "Edit skill" : "Create skill"}
+        subtitle="Define a skill and its topics in a single focused overlay."
+        footer={
+          <>
+            <button type="button" className="neo-button" onClick={closeModal}>
+              Cancel
+            </button>
+            <button type="submit" form="skill-form" className="neo-button-primary">
+              {editingId ? "Update Skill" : "Create Skill"}
+            </button>
+          </>
+        }
+      >
+        <form id="skill-form" onSubmit={handleSubmit} className="grid gap-4">
+          <InputField label="Skill Name" value={form.name} onChange={(value) => setForm({ ...form, name: value })} />
+          <TextareaField
+            label="Description"
+            value={form.description}
+            onChange={(value) => setForm({ ...form, description: value })}
+          />
+          <TextareaField
+            label="Topics (comma separated)"
+            value={form.topicsText}
+            onChange={(value) => setForm({ ...form, topicsText: value })}
+          />
         </form>
-      </section>
-    </div>
-  );
-}
+      </Modal>
 
-function FormInput({ label, value, onChange }) {
-  return (
-    <div>
-      <label className="mb-2 block text-sm font-medium">{label}</label>
-      <input
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className="w-full rounded-2xl border border-[var(--border)] bg-[var(--surface-strong)] px-4 py-3"
+      <ConfirmDialog
+        open={Boolean(deleteState)}
+        onCancel={() => setDeleteState(null)}
+        onConfirm={confirmDelete}
+        title={deleteState?.type === "hard" ? "Delete skill permanently?" : "Remove skill from active list?"}
+        description={deleteState ? `${deleteState.label} is the skill affected by this action.` : ""}
+        confirmLabel={deleteState?.type === "hard" ? "Delete Permanently" : "Delete Skill"}
       />
-    </div>
+
+      <Toast toast={toast} onClose={() => setToast(null)} />
+    </>
   );
 }

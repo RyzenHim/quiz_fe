@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { BookOpen, Code2, Layers, Users } from "lucide-react";
 import { useAppContext } from "../../components/app-provider";
 import api from "../../lib/api";
+import { PageHeader, StatCard } from "../../components/ui-kit";
 
 export default function TeacherDashboard() {
   const { auth } = useAppContext();
@@ -36,32 +38,26 @@ export default function TeacherDashboard() {
     };
 
     load().catch(() => null);
-  }, [auth]);
+  }, [auth?.token]);
 
   const cards = [
-    { label: "Students", value: stats.students },
-    { label: "Courses", value: stats.courses },
-    { label: "Batches", value: stats.batches },
-    { label: "Skills", value: stats.skills },
+    { label: "Students", value: stats.students, icon: Users },
+    { label: "Courses", value: stats.courses, icon: BookOpen },
+    { label: "Batches", value: stats.batches, icon: Layers },
+    { label: "Skills", value: stats.skills, icon: Code2 },
   ];
 
   return (
     <div className="space-y-6">
-      <div className="surface-card theme-transition rounded-[28px] p-8">
-        <p className="text-sm uppercase tracking-[0.28em] text-[var(--accent)]">Overview</p>
-        <h1 className="mt-3 text-4xl font-semibold">Teacher dashboard</h1>
-        <p className="mt-3 max-w-2xl text-sm text-[var(--muted)]">
-          Manage students, batches, courses, and skills from one place. These numbers are
-          loaded directly from your backend APIs.
-        </p>
-      </div>
+      <PageHeader
+        eyebrow="Overview"
+        title="Teacher control room with a calmer visual rhythm"
+        description="These totals are still coming directly from the backend APIs, but the UI now uses a softer neumorphic shell to make the dashboard feel less mechanical."
+      />
 
       <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
         {cards.map((card) => (
-          <div key={card.label} className="surface-card theme-transition rounded-[24px] p-6">
-            <p className="text-sm text-[var(--muted)]">{card.label}</p>
-            <p className="mt-4 text-4xl font-semibold">{card.value}</p>
-          </div>
+          <StatCard key={card.label} label={card.label} value={card.value} icon={card.icon} />
         ))}
       </div>
     </div>

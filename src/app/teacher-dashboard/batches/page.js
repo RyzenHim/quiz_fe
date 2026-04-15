@@ -1,149 +1,247 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Pencil, Plus, Trash2 } from "lucide-react";
 import { useAppContext } from "../../../components/app-provider";
 import api from "../../../lib/api";
+import {
+  ConfirmDialog,
+  EntityCard,
+  EntitySection,
+  InputField,
+  Modal,
+  PageHeader,
+  SelectField,
+  TextareaField,
+  Toast,
+} from "../../../components/ui-kit";
+
+const emptyForm = { batchName: "", batchCode: "", description: "", courses: [] };
 
 export default function BatchesPage() {
   const { auth } = useAppContext();
-  const [batches, setBatches] = useState([]);
-  const [courses, setCourses] = useState([]);
-  const [message, setMessage] = useState("");
-  const [form, setForm] = useState({
-    batchName: "",
-    batchCode: "",
-    description: "",
-    courses: [],
-  });
-
   const token = auth?.token;
   const headers = token ? { Authorization: `Bearer ${token}` } : {};
+  const [batches, setBatches] = useState([]);
+  const [deletedBatches, setDeletedBatches] = useState([]);
+  const [courses, setCourses] = useState([]);
+  const [form, setForm] = useState(emptyForm);
+  const [editingId, setEditingId] = useState(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [deleteState, setDeleteState] = useState(null);
+  const [toast, setToast] = useState(null);
 
   const loadData = async () => {
-    const [batchesRes, coursesRes] = await Promise.all([
+    const [activeRes, deletedRes, coursesRes] = await Promise.all([
       api.get("/batches", { headers }),
+      api.get("/batches?deleted=true", { headers }),
       api.get("/courses", { headers }),
     ]);
-    setBatches(batchesRes.data.batches || []);
+    setBatches(activeRes.data.batches || []);
+    setDeletedBatches(deletedRes.data.batches || []);
     setCourses(coursesRes.data.courses || []);
   };
 
   useEffect(() => {
-    if (!token) {
-      return;
-    }
-
-    const run = async () => {
-      try {
-        const effectHeaders = { Authorization: `Bearer ${token}` };
-        const [batchesRes, coursesRes] = await Promise.all([
-          api.get("/batches", { headers: effectHeaders }),
-          api.get("/courses", { headers: effectHeaders }),
-        ]);
-        setBatches(batchesRes.data.batches || []);
-        setCourses(coursesRes.data.courses || []);
-      } catch {
-        console.error("Unable to load batches.");
-      }
-    };
-
-    run();
+    if (!token) return;
+    loadData().catch(() => null);
   }, [token]);
+
+  const closeModal = () => {
+    setModalOpen(false);
+    setEditingId(null);
+    setForm(emptyForm);
+  };
+
+  const handleEdit = (batch) => {
+    setEditingId(batch._id);
+    setForm({
+      batchName: batch.batchName || "",
+      batchCode: batch.batchCode || "",
+      description: batch.description || "",
+      courses: (batch.courses || []).map((course) => course._id),
+    });
+    setModalOpen(true);
+  };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    setMessage("");
     try {
-      await api.post("/batches", form, { headers });
-      setForm({ batchName: "", batchCode: "", description: "", courses: [] });
-      setMessage("Batch created successfully.");
+      if (editingId) {
+        await api.put(`/batches/${editingId}`, form, { headers });
+        setToast({ variant: "success", title: "Batch updated" });
+      } else {
+        await api.post("/batches", form, { headers });
+        setToast({ variant: "success", title: "Batch created" });
+      }
+      closeModal();
       await loadData();
     } catch (error) {
-      setMessage(error.response?.data?.message || "Unable to create batch.");
+      setToast({
+        variant: "error",
+        title: "Unable to save batch",
+        description: error.response?.data?.message || "Please review the form and try again.",
+      });
     }
   };
 
-  const handleDelete = async (batchId) => {
-    await api.delete(`/batches/soft-delete/${batchId}`, { headers });
-    await loadData();
+  const confirmDelete = async () => {
+    if (!deleteState) {
+      return;
+    }
+    try {
+      if (deleteState.type === "hard") {
+        await api.delete(`/batches/hard-delete/${deleteState.id}`, { headers });
+      } else {
+        await api.delete(`/batches/soft-delete/${deleteState.id}`, { headers });
+      }
+      setToast({
+        variant: "warning",
+        title: deleteState.type === "hard" ? "Batch removed permanently" : "Batch moved to deleted",
+      });
+      setDeleteState(null);
+      await loadData();
+    } catch (error) {
+      setToast({
+        variant: "error",
+        title: "Delete failed",
+        description: error.response?.data?.message || "Unable to delete batch.",
+      });
+    }
   };
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
-      <section className="surface-card rounded-[24px] p-6">
-        <h1 className="text-3xl font-semibold">Batches</h1>
-        <div className="mt-6 space-y-4">
-          {batches.length === 0 ? (
-            <p className="text-sm text-[var(--muted)]">No batches yet.</p>
-          ) : (
-            batches.map((batch) => (
-              <div key={batch._id} className="surface-soft rounded-[20px] p-5">
-                <div className="flex items-center justify-between gap-4">
-                  <div>
-                    <h3 className="text-xl font-semibold">{batch.batchName}</h3>
-                    <p className="mt-1 text-sm text-[var(--muted)]">
-                      Courses: {(batch.courses || []).map((course) => course.title).join(", ") || "None"}
-                    </p>
-                  </div>
+    <>
+      <div className="space-y-6">
+        <PageHeader
+          eyebrow="Batches"
+          title="Organize students into polished cohort structures"
+          description="Courses can be grouped into batches through a dedicated modal, and every delete action now pauses behind a warning confirmation."
+          action={
+            <button type="button" className="neo-button-primary" onClick={() => setModalOpen(true)}>
+              <Plus size={18} />
+              Add Batch
+            </button>
+          }
+        />
+
+        <div className="grid gap-6 xl:grid-cols-2">
+          <EntitySection title="Active Batches" items={batches} emptyText="No active batches found.">
+            {(batch) => (
+              <EntityCard
+                key={batch._id}
+                title={batch.batchName}
+                subtitle={(batch.courses || []).map((course) => course.title).join(", ") || "No course"}
+                meta={batch.batchCode || "No code"}
+                actions={
+                  <>
+                    <button type="button" className="neo-button" onClick={() => handleEdit(batch)}>
+                      <Pencil size={16} />
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      className="neo-button-danger"
+                      onClick={() => setDeleteState({ id: batch._id, type: "soft", label: batch.batchName })}
+                    >
+                      <Trash2 size={16} />
+                      Delete
+                    </button>
+                  </>
+                }
+              />
+            )}
+          </EntitySection>
+
+          <EntitySection title="Deleted Batches" items={deletedBatches} emptyText="No deleted batches.">
+            {(batch) => (
+              <EntityCard
+                key={batch._id}
+                title={batch.batchName}
+                subtitle={batch.batchCode || "No code"}
+                meta="Deleted records"
+                actions={
                   <button
                     type="button"
-                    onClick={() => handleDelete(batch._id)}
-                    className="rounded-xl bg-red-500 px-3 py-2 text-sm text-white"
+                    className="neo-button-danger"
+                    onClick={() => setDeleteState({ id: batch._id, type: "hard", label: batch.batchName })}
                   >
-                    Delete
+                    <Trash2 size={16} />
+                    Delete Permanently
                   </button>
-                </div>
-              </div>
-            ))
-          )}
+                }
+              />
+            )}
+          </EntitySection>
         </div>
-      </section>
+      </div>
 
-      <section className="surface-card rounded-[24px] p-6">
-        <h2 className="text-2xl font-semibold">Add batch</h2>
-        <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-          <FormInput label="Batch Name" value={form.batchName} onChange={(value) => setForm({ ...form, batchName: value })} />
-          <FormInput label="Batch Code" value={form.batchCode} onChange={(value) => setForm({ ...form, batchCode: value })} />
-          <FormInput label="Description" value={form.description} onChange={(value) => setForm({ ...form, description: value })} />
-          <div>
-            <label className="mb-2 block text-sm font-medium">Courses</label>
-            <select
-              multiple
+      <Modal
+        open={modalOpen}
+        onClose={closeModal}
+        title={editingId ? "Edit batch" : "Create batch"}
+        subtitle="Define the cohort, its code, and the course alignment in one modal."
+        footer={
+          <>
+            <button type="button" className="neo-button" onClick={closeModal}>
+              Cancel
+            </button>
+            <button type="submit" form="batch-form" className="neo-button-primary">
+              {editingId ? "Update Batch" : "Create Batch"}
+            </button>
+          </>
+        }
+      >
+        <form id="batch-form" onSubmit={handleSubmit} className="grid gap-4 md:grid-cols-2">
+          <InputField
+            label="Batch Name"
+            value={form.batchName}
+            onChange={(value) => setForm({ ...form, batchName: value })}
+          />
+          <InputField
+            label="Batch Code"
+            value={form.batchCode}
+            onChange={(value) => setForm({ ...form, batchCode: value })}
+          />
+          <div className="md:col-span-2">
+            <TextareaField
+              label="Description"
+              value={form.description}
+              onChange={(value) => setForm({ ...form, description: value })}
+            />
+          </div>
+          <div className="md:col-span-2">
+            <SelectField
+              label="Courses"
               value={form.courses}
+              multiple
               onChange={(event) =>
                 setForm({
                   ...form,
                   courses: Array.from(event.target.selectedOptions, (option) => option.value),
                 })
               }
-              className="min-h-36 w-full rounded-2xl border border-[var(--border)] bg-[var(--surface-strong)] px-4 py-3"
             >
               {courses.map((course) => (
                 <option key={course._id} value={course._id}>
                   {course.title}
                 </option>
               ))}
-            </select>
+            </SelectField>
           </div>
-          {message ? <p className="text-sm text-[var(--muted)]">{message}</p> : null}
-          <button type="submit" className="w-full rounded-2xl bg-[var(--accent)] px-4 py-3 font-semibold text-white">
-            Save batch
-          </button>
         </form>
-      </section>
-    </div>
-  );
-}
+      </Modal>
 
-function FormInput({ label, value, onChange }) {
-  return (
-    <div>
-      <label className="mb-2 block text-sm font-medium">{label}</label>
-      <input
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className="w-full rounded-2xl border border-[var(--border)] bg-[var(--surface-strong)] px-4 py-3"
+      <ConfirmDialog
+        open={Boolean(deleteState)}
+        onCancel={() => setDeleteState(null)}
+        onConfirm={confirmDelete}
+        title={deleteState?.type === "hard" ? "Delete batch permanently?" : "Remove batch from active list?"}
+        description={deleteState ? `${deleteState.label} is the batch affected by this action.` : ""}
+        confirmLabel={deleteState?.type === "hard" ? "Delete Permanently" : "Delete Batch"}
       />
-    </div>
+
+      <Toast toast={toast} onClose={() => setToast(null)} />
+    </>
   );
 }
