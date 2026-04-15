@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   Download,
+  Eye,
   Pencil,
   Plus,
   RotateCcw,
@@ -16,6 +17,7 @@ import { useAppContext } from "../../../components/app-provider";
 import api from "../../../lib/api";
 import {
   ConfirmDialog,
+  DetailModal,
   EntityCard,
   EntitySection,
   InputField,
@@ -23,6 +25,7 @@ import {
   PaginationControls,
   PageHeader,
   SearchField,
+  SegmentedTabs,
   SelectField,
   TextareaField,
   Toast,
@@ -37,7 +40,8 @@ const createManualRow = () => ({
   marks: "1",
   difficulty: "medium",
   explanation: "",
-  optionsText: "Option 1|true, Option 2|false",
+  options: ["", "", "", ""],
+  correctOptionIndex: 0,
   correctAnswerText: "",
 });
 
@@ -49,8 +53,32 @@ const emptyEditForm = {
   marks: "1",
   difficulty: "medium",
   explanation: "",
-  optionsText: "Option 1|true, Option 2|false",
+  options: ["", "", "", ""],
+  correctOptionIndex: 0,
   correctAnswerText: "",
+};
+
+const buildObjectiveOptions = (type, options, correctOptionIndex) => {
+  if (type === "short_answer") {
+    return [];
+  }
+
+  if (type === "true_false") {
+    return [
+      { text: "True", isCorrect: correctOptionIndex === 0 },
+      { text: "False", isCorrect: correctOptionIndex === 1 },
+    ];
+  }
+
+  return options.map((text, index) => ({
+    text: String(text || "").trim(),
+    isCorrect: correctOptionIndex === index,
+  }));
+};
+
+const getCorrectOptionIndex = (options = []) => {
+  const matchedIndex = options.findIndex((option) => option.isCorrect);
+  return matchedIndex >= 0 ? matchedIndex : 0;
 };
 
 export default function QuestionsPage() {
@@ -84,6 +112,8 @@ export default function QuestionsPage() {
   const [manualRows, setManualRows] = useState([createManualRow()]);
   const [spreadsheetLink, setSpreadsheetLink] = useState("");
   const [importFile, setImportFile] = useState(null);
+  const [activePanel, setActivePanel] = useState("active");
+  const [selectedQuestion, setSelectedQuestion] = useState(null);
 
   const loadSkills = async () => {
     const response = await api.get("/skills", { headers });
@@ -136,19 +166,49 @@ export default function QuestionsPage() {
     () => skills.find((skill) => skill._id === (editingId ? editForm.skill : sharedContext.skill)),
     [editForm.skill, editingId, sharedContext.skill, skills]
   );
+  const questionSections = selectedQuestion
+    ? [
+        {
+          title: "Question Overview",
+          items: [
+            { label: "Question", value: selectedQuestion.questionText },
+            { label: "Type", value: selectedQuestion.type },
+            { label: "Skill", value: selectedQuestion.skill?.name },
+            { label: "Topic", value: selectedQuestion.topicTitle },
+          ],
+        },
+        {
+          title: "Evaluation",
+          items: [
+            { label: "Marks", value: String(selectedQuestion.marks || "") },
+            { label: "Difficulty", value: selectedQuestion.difficulty },
+            {
+              label: "Correct Answer",
+              value:
+                selectedQuestion.type === "short_answer"
+                  ? selectedQuestion.correctAnswerText
+                  : (selectedQuestion.options || []).find((option) => option.isCorrect)?.text,
+            },
+            { label: "Explanation", value: selectedQuestion.explanation },
+          ],
+        },
+        {
+          title: "Options",
+          items: [
+            {
+              label: "Option List",
+              value: (selectedQuestion.options || [])
+                .map((option) => `${option.text}${option.isCorrect ? " (Correct)" : ""}`)
+                .join(", "),
+            },
+            { label: "Status", value: selectedQuestion.isDeleted ? "Deleted" : "Active" },
+          ],
+        },
+      ]
+    : [];
 
   const buildSingleQuestionPayload = (form) => {
-    const options =
-      form.type === "short_answer"
-        ? []
-        : form.optionsText
-            .split(",")
-            .map((item) => item.trim())
-            .filter(Boolean)
-            .map((item) => {
-              const [text, flag] = item.split("|").map((part) => part.trim());
-              return { text, isCorrect: flag === "true" };
-            });
+    const options = buildObjectiveOptions(form.type, form.options || [], form.correctOptionIndex);
 
     return {
       skill: form.skill,
@@ -193,9 +253,11 @@ export default function QuestionsPage() {
       marks: String(question.marks || 1),
       difficulty: question.difficulty || "medium",
       explanation: question.explanation || "",
-      optionsText: (question.options || [])
-        .map((option) => `${option.text}|${option.isCorrect ? "true" : "false"}`)
-        .join(", "),
+      options:
+        question.type === "mcq"
+          ? Array.from({ length: 4 }, (_, index) => question.options?.[index]?.text || "")
+          : ["True", "False", "", ""],
+      correctOptionIndex: getCorrectOptionIndex(question.options || []),
       correctAnswerText: question.correctAnswerText || "",
     });
     setModalOpen(true);
@@ -414,7 +476,24 @@ export default function QuestionsPage() {
           }
         />
 
-        <div className="grid gap-6 xl:grid-cols-2">
+        <section className="neo-panel rounded-[30px] p-4 md:p-6">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p className="text-sm uppercase tracking-[0.24em] text-[var(--accent)]">Question Views</p>
+              <h2 className="mt-2 text-2xl font-semibold tracking-[-0.03em]">Work on active questions first and open deleted ones only when needed</h2>
+            </div>
+            <SegmentedTabs
+              tabs={[
+                { value: "active", label: "Active Questions", count: activePagination.totalItems },
+                { value: "deleted", label: "Deleted Questions", count: deletedPagination.totalItems },
+              ]}
+              value={activePanel}
+              onChange={setActivePanel}
+            />
+          </div>
+        </section>
+
+        {activePanel === "active" ? (
           <EntitySection
             title="Active Questions"
             items={questions}
@@ -461,6 +540,10 @@ export default function QuestionsPage() {
                 meta={question.difficulty || "medium"}
                 actions={
                   <>
+                    <button type="button" className="neo-button" onClick={() => setSelectedQuestion(question)}>
+                      <Eye size={16} />
+                      View
+                    </button>
                     <button type="button" className="neo-button" onClick={() => handleEdit(question)}>
                       <Pencil size={16} />
                       Edit
@@ -478,7 +561,9 @@ export default function QuestionsPage() {
               />
             )}
           </EntitySection>
+        ) : null}
 
+        {activePanel === "deleted" ? (
           <EntitySection
             title="Deleted Questions"
             items={deletedQuestions}
@@ -525,6 +610,10 @@ export default function QuestionsPage() {
                 meta="Deleted records"
                 actions={
                   <>
+                    <button type="button" className="neo-button" onClick={() => setSelectedQuestion(question)}>
+                      <Eye size={16} />
+                      View
+                    </button>
                     <button type="button" className="neo-button" onClick={() => restoreQuestion(question._id)}>
                       <RotateCcw size={16} />
                       Restore
@@ -542,9 +631,10 @@ export default function QuestionsPage() {
               />
             )}
           </EntitySection>
-        </div>
+        ) : null}
 
-        <div className="grid gap-6 xl:grid-cols-2">
+        <div className="grid gap-6">
+          {activePanel === "active" ? (
           <PaginationControls
             page={activePagination.page}
             totalPages={activePagination.totalPages}
@@ -553,6 +643,8 @@ export default function QuestionsPage() {
             onPageChange={(page) => setActiveFilters((current) => ({ ...current, page }))}
             label="questions"
           />
+          ) : null}
+          {activePanel === "deleted" ? (
           <PaginationControls
             page={deletedPagination.page}
             totalPages={deletedPagination.totalPages}
@@ -561,6 +653,7 @@ export default function QuestionsPage() {
             onPageChange={(page) => setDeletedFilters((current) => ({ ...current, page }))}
             label="deleted questions"
           />
+          ) : null}
         </div>
       </div>
 
@@ -575,18 +668,13 @@ export default function QuestionsPage() {
         }
         size="wide"
         footer={
-          <>
-            <button type="button" className="neo-button" onClick={closeModal}>
-              Cancel
-            </button>
-            <button
-              type="submit"
-              form={editingId ? "question-edit-form" : "question-create-form"}
-              className="neo-button-primary"
-            >
-              {editingId ? "Update Question" : "Submit"}
-            </button>
-          </>
+          <button
+            type="submit"
+            form={editingId ? "question-edit-form" : "question-create-form"}
+            className="neo-button-primary"
+          >
+            {editingId ? "Update Question" : "Submit"}
+          </button>
         }
       >
         {editingId ? (
@@ -652,12 +740,49 @@ export default function QuestionsPage() {
                 value={editForm.correctAnswerText}
                 onChange={(value) => setEditForm({ ...editForm, correctAnswerText: value })}
               />
+            ) : editForm.type === "true_false" ? (
+              <SelectField
+                label="Correct Answer"
+                value={String(editForm.correctOptionIndex)}
+                onChange={(event) =>
+                  setEditForm({ ...editForm, correctOptionIndex: Number(event.target.value) })
+                }
+              >
+                <option value="0">True</option>
+                <option value="1">False</option>
+              </SelectField>
             ) : (
-              <InputField
-                label="Options (text|true, text|false)"
-                value={editForm.optionsText}
-                onChange={(value) => setEditForm({ ...editForm, optionsText: value })}
-              />
+              <div className="md:col-span-2 space-y-4">
+                <div className="grid gap-4 md:grid-cols-2">
+                  {editForm.options.map((option, optionIndex) => (
+                    <InputField
+                      key={optionIndex}
+                      label={`Option ${optionIndex + 1}`}
+                      value={option}
+                      onChange={(value) =>
+                        setEditForm((current) => ({
+                          ...current,
+                          options: current.options.map((item, index) =>
+                            index === optionIndex ? value : item
+                          ),
+                        }))
+                      }
+                    />
+                  ))}
+                </div>
+                <SelectField
+                  label="Correct Option"
+                  value={String(editForm.correctOptionIndex)}
+                  onChange={(event) =>
+                    setEditForm({ ...editForm, correctOptionIndex: Number(event.target.value) })
+                  }
+                >
+                  <option value="0">Option 1</option>
+                  <option value="1">Option 2</option>
+                  <option value="2">Option 3</option>
+                  <option value="3">Option 4</option>
+                </SelectField>
+              </div>
             )}
             <div className="md:col-span-2">
               <TextareaField
@@ -789,18 +914,67 @@ export default function QuestionsPage() {
                             )
                           }
                         />
-                      ) : (
-                        <InputField
-                          label="Options (text|true, text|false)"
-                          value={row.optionsText}
-                          onChange={(value) =>
+                      ) : row.type === "true_false" ? (
+                        <SelectField
+                          label="Correct Answer"
+                          value={String(row.correctOptionIndex)}
+                          onChange={(event) =>
                             setManualRows((current) =>
                               current.map((item, rowIndex) =>
-                                rowIndex === index ? { ...item, optionsText: value } : item
+                                rowIndex === index
+                                  ? { ...item, correctOptionIndex: Number(event.target.value) }
+                                  : item
                               )
                             )
                           }
-                        />
+                        >
+                          <option value="0">True</option>
+                          <option value="1">False</option>
+                        </SelectField>
+                      ) : (
+                        <div className="md:col-span-2 space-y-4">
+                          <div className="grid gap-4 md:grid-cols-2">
+                            {row.options.map((option, optionIndex) => (
+                              <InputField
+                                key={optionIndex}
+                                label={`Option ${optionIndex + 1}`}
+                                value={option}
+                                onChange={(value) =>
+                                  setManualRows((current) =>
+                                    current.map((item, rowIndex) =>
+                                      rowIndex === index
+                                        ? {
+                                            ...item,
+                                            options: item.options.map((currentOption, currentIndex) =>
+                                              currentIndex === optionIndex ? value : currentOption
+                                            ),
+                                          }
+                                        : item
+                                    )
+                                  )
+                                }
+                              />
+                            ))}
+                          </div>
+                          <SelectField
+                            label="Correct Option"
+                            value={String(row.correctOptionIndex)}
+                            onChange={(event) =>
+                              setManualRows((current) =>
+                                current.map((item, rowIndex) =>
+                                  rowIndex === index
+                                    ? { ...item, correctOptionIndex: Number(event.target.value) }
+                                    : item
+                                )
+                              )
+                            }
+                          >
+                            <option value="0">Option 1</option>
+                            <option value="1">Option 2</option>
+                            <option value="2">Option 3</option>
+                            <option value="3">Option 4</option>
+                          </SelectField>
+                        </div>
                       )}
                       <div className="md:col-span-2">
                         <TextareaField
@@ -862,6 +1036,14 @@ export default function QuestionsPage() {
         title={deleteState?.type === "hard" ? "Delete question permanently?" : "Remove question from active list?"}
         description={deleteState ? `${deleteState.label} is the question affected by this action.` : ""}
         confirmLabel={deleteState?.type === "hard" ? "Delete Permanently" : "Delete Question"}
+      />
+
+      <DetailModal
+        open={Boolean(selectedQuestion)}
+        onClose={() => setSelectedQuestion(null)}
+        title={selectedQuestion?.questionText || "Question Details"}
+        subtitle="Read the full question payload inside the same neumorphic blur modal."
+        sections={questionSections}
       />
 
       <Toast toast={toast} onClose={() => setToast(null)} />

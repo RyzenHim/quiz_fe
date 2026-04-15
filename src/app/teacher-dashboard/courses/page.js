@@ -1,16 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Eye, Pencil, Plus, Trash2 } from "lucide-react";
 import { useAppContext } from "../../../components/app-provider";
 import api from "../../../lib/api";
 import {
   ConfirmDialog,
+  DetailModal,
   EntityCard,
   EntitySection,
   InputField,
   Modal,
   PageHeader,
+  SegmentedTabs,
   SelectField,
   Toast,
 } from "../../../components/ui-kit";
@@ -37,6 +39,37 @@ export default function CoursesPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [deleteState, setDeleteState] = useState(null);
   const [toast, setToast] = useState(null);
+  const [activePanel, setActivePanel] = useState("active");
+  const [selectedCourse, setSelectedCourse] = useState(null);
+
+  const courseSections = selectedCourse
+    ? [
+        {
+          title: "Course Overview",
+          items: [
+            { label: "Title", value: selectedCourse.title },
+            { label: "Code", value: selectedCourse.code },
+            { label: "Category", value: selectedCourse.category },
+            { label: "Level", value: selectedCourse.level },
+          ],
+        },
+        {
+          title: "Delivery Details",
+          items: [
+            { label: "Duration In Weeks", value: String(selectedCourse.durationInWeeks || "") },
+            {
+              label: "Skills",
+              value: (selectedCourse.skills || []).map((skill) => skill.name).join(", "),
+            },
+            { label: "Status", value: selectedCourse.isDeleted ? "Deleted" : "Active" },
+            {
+              label: "Created",
+              value: selectedCourse.createdAt ? new Date(selectedCourse.createdAt).toLocaleString() : "",
+            },
+          ],
+        },
+      ]
+    : [];
 
   const loadData = async () => {
     const [activeRes, deletedRes, skillsRes] = await Promise.all([
@@ -142,7 +175,24 @@ export default function CoursesPage() {
           }
         />
 
-        <div className="grid gap-6 xl:grid-cols-2">
+        <section className="neo-panel rounded-[30px] p-4 md:p-6">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p className="text-sm uppercase tracking-[0.24em] text-[var(--accent)]">Course Views</p>
+              <h2 className="mt-2 text-2xl font-semibold tracking-[-0.03em]">Keep active courses separate from deleted records</h2>
+            </div>
+            <SegmentedTabs
+              tabs={[
+                { value: "active", label: "Active Courses", count: courses.length },
+                { value: "deleted", label: "Deleted Courses", count: deletedCourses.length },
+              ]}
+              value={activePanel}
+              onChange={setActivePanel}
+            />
+          </div>
+        </section>
+
+        {activePanel === "active" ? (
           <EntitySection title="Active Courses" items={courses} emptyText="No active courses found.">
             {(course) => (
               <EntityCard
@@ -152,6 +202,10 @@ export default function CoursesPage() {
                 meta={`${course.level || "beginner"} level`}
                 actions={
                   <>
+                    <button type="button" className="neo-button" onClick={() => setSelectedCourse(course)}>
+                      <Eye size={16} />
+                      View
+                    </button>
                     <button type="button" className="neo-button" onClick={() => handleEdit(course)}>
                       <Pencil size={16} />
                       Edit
@@ -169,7 +223,9 @@ export default function CoursesPage() {
               />
             )}
           </EntitySection>
+        ) : null}
 
+        {activePanel === "deleted" ? (
           <EntitySection title="Deleted Courses" items={deletedCourses} emptyText="No deleted courses.">
             {(course) => (
               <EntityCard
@@ -178,19 +234,25 @@ export default function CoursesPage() {
                 subtitle={course.category || "General"}
                 meta="Deleted records"
                 actions={
-                  <button
-                    type="button"
-                    className="neo-button-danger"
-                    onClick={() => setDeleteState({ id: course._id, type: "hard", label: course.title })}
-                  >
-                    <Trash2 size={16} />
-                    Delete Permanently
-                  </button>
+                  <>
+                    <button type="button" className="neo-button" onClick={() => setSelectedCourse(course)}>
+                      <Eye size={16} />
+                      View
+                    </button>
+                    <button
+                      type="button"
+                      className="neo-button-danger"
+                      onClick={() => setDeleteState({ id: course._id, type: "hard", label: course.title })}
+                    >
+                      <Trash2 size={16} />
+                      Delete Permanently
+                    </button>
+                  </>
                 }
               />
             )}
           </EntitySection>
-        </div>
+        ) : null}
       </div>
 
       <Modal
@@ -199,14 +261,9 @@ export default function CoursesPage() {
         title={editingId ? "Edit course" : "Create course"}
         subtitle="Map course structure, level, and linked skills in one focused modal."
         footer={
-          <>
-            <button type="button" className="neo-button" onClick={closeModal}>
-              Cancel
-            </button>
-            <button type="submit" form="course-form" className="neo-button-primary">
-              {editingId ? "Update Course" : "Create Course"}
-            </button>
-          </>
+          <button type="submit" form="course-form" className="neo-button-primary">
+            {editingId ? "Update Course" : "Create Course"}
+          </button>
         }
       >
         <form id="course-form" onSubmit={handleSubmit} className="grid gap-4 md:grid-cols-2">
@@ -259,6 +316,14 @@ export default function CoursesPage() {
         title={deleteState?.type === "hard" ? "Delete course permanently?" : "Remove course from active list?"}
         description={deleteState ? `${deleteState.label} is the course affected by this action.` : ""}
         confirmLabel={deleteState?.type === "hard" ? "Delete Permanently" : "Delete Course"}
+      />
+
+      <DetailModal
+        open={Boolean(selectedCourse)}
+        onClose={() => setSelectedCourse(null)}
+        title={selectedCourse?.title || "Course Details"}
+        subtitle="Full course information with the same blurred neumorphic treatment."
+        sections={courseSections}
       />
 
       <Toast toast={toast} onClose={() => setToast(null)} />

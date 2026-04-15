@@ -136,14 +136,9 @@ export default function StudentProfilePage() {
         title="Edit student profile"
         subtitle="Your email stays locked, but you can update the rest of your account details here."
         footer={
-          <>
-            <button type="button" className="neo-button" onClick={() => setProfileModalOpen(false)}>
-              Cancel
-            </button>
-            <button type="submit" form="student-profile-form" className="neo-button-primary">
-              Save Profile
-            </button>
-          </>
+          <button type="submit" form="student-profile-form" className="neo-button-primary">
+            Save Profile
+          </button>
         }
       >
         <form id="student-profile-form" onSubmit={saveProfile} className="grid gap-4 md:grid-cols-2">
@@ -192,14 +187,9 @@ export default function StudentProfilePage() {
         title="Reset password"
         subtitle="Use your current password, then choose a new one with at least 6 characters."
         footer={
-          <>
-            <button type="button" className="neo-button" onClick={() => setPasswordModalOpen(false)}>
-              Cancel
-            </button>
-            <button type="submit" form="student-password-form" className="neo-button-primary">
-              Update Password
-            </button>
-          </>
+          <button type="submit" form="student-password-form" className="neo-button-primary">
+            Update Password
+          </button>
         }
       >
         <form id="student-password-form" onSubmit={savePassword} className="grid gap-4">

@@ -213,18 +213,14 @@ export default function StudentQuizAttemptPage() {
                     className="flex items-start gap-3 rounded-2xl border border-[var(--border)] px-4 py-4"
                   >
                     <input
-                      type="checkbox"
+                      type="radio"
+                      name={`question-${question._id}`}
                       checked={(answers[question._id]?.selectedOptionIds || []).includes(option._id)}
-                      onChange={(event) => {
-                        const previousIds = answers[question._id]?.selectedOptionIds || [];
-                        const nextIds = event.target.checked
-                          ? [...previousIds, option._id]
-                          : previousIds.filter((value) => value !== option._id);
-
+                      onChange={() => {
                         setAnswers((current) => ({
                           ...current,
                           [question._id]: {
-                            selectedOptionIds: nextIds,
+                            selectedOptionIds: [option._id],
                             answerText: "",
                           },
                         }));

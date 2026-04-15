@@ -1,16 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Eye, Pencil, Plus, Trash2 } from "lucide-react";
 import { useAppContext } from "../../../components/app-provider";
 import api from "../../../lib/api";
 import {
   ConfirmDialog,
+  DetailModal,
   EntityCard,
   EntitySection,
   InputField,
   Modal,
   PageHeader,
+  SegmentedTabs,
   SelectField,
   TextareaField,
   Toast,
@@ -30,6 +32,37 @@ export default function BatchesPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [deleteState, setDeleteState] = useState(null);
   const [toast, setToast] = useState(null);
+  const [activePanel, setActivePanel] = useState("active");
+  const [selectedBatch, setSelectedBatch] = useState(null);
+
+  const batchSections = selectedBatch
+    ? [
+        {
+          title: "Batch Overview",
+          items: [
+            { label: "Batch Name", value: selectedBatch.batchName },
+            { label: "Batch Code", value: selectedBatch.batchCode },
+            { label: "Description", value: selectedBatch.description },
+            { label: "Status", value: selectedBatch.isDeleted ? "Deleted" : "Active" },
+          ],
+        },
+        {
+          title: "Course Alignment",
+          items: [
+            {
+              label: "Courses",
+              value: (selectedBatch.courses || []).map((course) => course.title).join(", "),
+            },
+            { label: "Student Count", value: String((selectedBatch.students || []).length) },
+            {
+              label: "Created",
+              value: selectedBatch.createdAt ? new Date(selectedBatch.createdAt).toLocaleString() : "",
+            },
+            { label: "Updated", value: selectedBatch.updatedAt ? new Date(selectedBatch.updatedAt).toLocaleString() : "" },
+          ],
+        },
+      ]
+    : [];
 
   const loadData = async () => {
     const [activeRes, deletedRes, coursesRes] = await Promise.all([
@@ -125,7 +158,24 @@ export default function BatchesPage() {
           }
         />
 
-        <div className="grid gap-6 xl:grid-cols-2">
+        <section className="neo-panel rounded-[30px] p-4 md:p-6">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p className="text-sm uppercase tracking-[0.24em] text-[var(--accent)]">Batch Views</p>
+              <h2 className="mt-2 text-2xl font-semibold tracking-[-0.03em]">Keep deleted batches off the main working surface</h2>
+            </div>
+            <SegmentedTabs
+              tabs={[
+                { value: "active", label: "Active Batches", count: batches.length },
+                { value: "deleted", label: "Deleted Batches", count: deletedBatches.length },
+              ]}
+              value={activePanel}
+              onChange={setActivePanel}
+            />
+          </div>
+        </section>
+
+        {activePanel === "active" ? (
           <EntitySection title="Active Batches" items={batches} emptyText="No active batches found.">
             {(batch) => (
               <EntityCard
@@ -135,6 +185,10 @@ export default function BatchesPage() {
                 meta={batch.batchCode || "No code"}
                 actions={
                   <>
+                    <button type="button" className="neo-button" onClick={() => setSelectedBatch(batch)}>
+                      <Eye size={16} />
+                      View
+                    </button>
                     <button type="button" className="neo-button" onClick={() => handleEdit(batch)}>
                       <Pencil size={16} />
                       Edit
@@ -152,7 +206,9 @@ export default function BatchesPage() {
               />
             )}
           </EntitySection>
+        ) : null}
 
+        {activePanel === "deleted" ? (
           <EntitySection title="Deleted Batches" items={deletedBatches} emptyText="No deleted batches.">
             {(batch) => (
               <EntityCard
@@ -161,19 +217,25 @@ export default function BatchesPage() {
                 subtitle={batch.batchCode || "No code"}
                 meta="Deleted records"
                 actions={
-                  <button
-                    type="button"
-                    className="neo-button-danger"
-                    onClick={() => setDeleteState({ id: batch._id, type: "hard", label: batch.batchName })}
-                  >
-                    <Trash2 size={16} />
-                    Delete Permanently
-                  </button>
+                  <>
+                    <button type="button" className="neo-button" onClick={() => setSelectedBatch(batch)}>
+                      <Eye size={16} />
+                      View
+                    </button>
+                    <button
+                      type="button"
+                      className="neo-button-danger"
+                      onClick={() => setDeleteState({ id: batch._id, type: "hard", label: batch.batchName })}
+                    >
+                      <Trash2 size={16} />
+                      Delete Permanently
+                    </button>
+                  </>
                 }
               />
             )}
           </EntitySection>
-        </div>
+        ) : null}
       </div>
 
       <Modal
@@ -182,14 +244,9 @@ export default function BatchesPage() {
         title={editingId ? "Edit batch" : "Create batch"}
         subtitle="Define the cohort, its code, and the course alignment in one modal."
         footer={
-          <>
-            <button type="button" className="neo-button" onClick={closeModal}>
-              Cancel
-            </button>
-            <button type="submit" form="batch-form" className="neo-button-primary">
-              {editingId ? "Update Batch" : "Create Batch"}
-            </button>
-          </>
+          <button type="submit" form="batch-form" className="neo-button-primary">
+            {editingId ? "Update Batch" : "Create Batch"}
+          </button>
         }
       >
         <form id="batch-form" onSubmit={handleSubmit} className="grid gap-4 md:grid-cols-2">
@@ -239,6 +296,14 @@ export default function BatchesPage() {
         title={deleteState?.type === "hard" ? "Delete batch permanently?" : "Remove batch from active list?"}
         description={deleteState ? `${deleteState.label} is the batch affected by this action.` : ""}
         confirmLabel={deleteState?.type === "hard" ? "Delete Permanently" : "Delete Batch"}
+      />
+
+      <DetailModal
+        open={Boolean(selectedBatch)}
+        onClose={() => setSelectedBatch(null)}
+        title={selectedBatch?.batchName || "Batch Details"}
+        subtitle="A full batch view with neumorphism and blurred background treatment."
+        sections={batchSections}
       />
 
       <Toast toast={toast} onClose={() => setToast(null)} />

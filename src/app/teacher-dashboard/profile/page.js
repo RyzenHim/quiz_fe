@@ -130,14 +130,9 @@ export default function TeacherProfilePage() {
         title="Edit teacher profile"
         subtitle="Email is intentionally read-only and managed separately."
         footer={
-          <>
-            <button type="button" className="neo-button" onClick={() => setProfileModalOpen(false)}>
-              Cancel
-            </button>
-            <button type="submit" form="teacher-profile-form" className="neo-button-primary">
-              Save Profile
-            </button>
-          </>
+          <button type="submit" form="teacher-profile-form" className="neo-button-primary">
+            Save Profile
+          </button>
         }
       >
         <form id="teacher-profile-form" onSubmit={saveProfile} className="grid gap-4">
@@ -168,14 +163,9 @@ export default function TeacherProfilePage() {
         title="Reset password"
         subtitle="Use your current password and choose a new one with at least 6 characters."
         footer={
-          <>
-            <button type="button" className="neo-button" onClick={() => setPasswordModalOpen(false)}>
-              Cancel
-            </button>
-            <button type="submit" form="teacher-password-form" className="neo-button-primary">
-              Update Password
-            </button>
-          </>
+          <button type="submit" form="teacher-password-form" className="neo-button-primary">
+            Update Password
+          </button>
         }
       >
         <form id="teacher-password-form" onSubmit={savePassword} className="grid gap-4">

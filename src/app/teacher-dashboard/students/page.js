@@ -1,19 +1,20 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Pencil, Plus, RotateCcw, Trash2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Eye, Pencil, Plus, RotateCcw, Trash2, Users, Layers3, Archive } from "lucide-react";
 import { useAppContext } from "../../../components/app-provider";
 import api from "../../../lib/api";
 import {
   ConfirmDialog,
-  EntityCard,
-  EntitySection,
+  DetailModal,
   InputField,
   Modal,
   PaginationControls,
   PageHeader,
   SearchField,
+  SegmentedTabs,
   SelectField,
+  StatCard,
   TextareaField,
   Toast,
 } from "../../../components/ui-kit";
@@ -39,6 +40,138 @@ const emptyPagination = {
   limit: PAGE_SIZE,
 };
 
+function buildStudentSections(student) {
+  if (!student) {
+    return [];
+  }
+
+  return [
+    {
+      title: "Student Profile",
+      items: [
+        { label: "Name", value: student.name },
+        { label: "Email", value: student.email },
+        { label: "Enrollment Number", value: student.enrollmentNumber },
+        { label: "Phone", value: student.phone },
+      ],
+    },
+    {
+      title: "Academic Alignment",
+      items: [
+        { label: "Batch", value: student.batch?.batchName },
+        { label: "Batch Code", value: student.batch?.batchCode },
+        {
+          label: "Courses",
+          value: (student.batch?.courses || []).map((course) => course.title).join(", "),
+        },
+        { label: "Status", value: student.isDeleted ? "Deleted" : "Active" },
+      ],
+    },
+    {
+      title: "Family And Address",
+      items: [
+        { label: "Guardian Name", value: student.guardianName },
+        { label: "Guardian Phone", value: student.guardianPhone },
+        { label: "Address", value: student.address },
+        {
+          label: "Created",
+          value: student.createdAt ? new Date(student.createdAt).toLocaleString() : "",
+        },
+      ],
+    },
+  ];
+}
+
+function StudentRowCard({ student, meta, actions }) {
+  return (
+    <article className="neo-soft rounded-[26px] p-5">
+      <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div className="min-w-0">
+              <h3 className="truncate text-xl font-semibold tracking-[-0.02em]">{student.name}</h3>
+              <p className="mt-1 truncate text-sm text-[var(--muted)]">{student.email || "No email added"}</p>
+            </div>
+            <span className="w-fit rounded-full bg-[var(--accent)]/12 px-3 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--accent)]">
+              {student.batch?.batchName || "No batch"}
+            </span>
+          </div>
+
+          <div className="mt-5 grid gap-3 md:grid-cols-3">
+            {meta.map((item) => (
+              <div key={item.label} className="rounded-[20px] border border-[var(--border)]/60 bg-white/20 px-4 py-3 backdrop-blur-md dark:bg-white/5">
+                <p className="text-[11px] uppercase tracking-[0.22em] text-[var(--accent)]">{item.label}</p>
+                <p className="mt-2 text-sm text-[var(--muted)]">{item.value || "Not available"}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex shrink-0 flex-wrap gap-3">{actions}</div>
+      </div>
+    </article>
+  );
+}
+
+function StudentListSection({
+  title,
+  eyebrow,
+  description,
+  items,
+  pagination,
+  actionsForStudent,
+  emptyText,
+  paginationLabel,
+  onPageChange,
+}) {
+  return (
+    <section className="neo-panel rounded-[32px] p-5 md:p-7">
+      <div className="border-b border-[var(--border)]/70 pb-5">
+        <p className="text-sm uppercase tracking-[0.24em] text-[var(--accent)]">{eyebrow}</p>
+        <div className="mt-3 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <h2 className="text-3xl font-semibold tracking-[-0.03em]">{title}</h2>
+            <p className="mt-2 max-w-3xl text-sm leading-7 text-[var(--muted)]">{description}</p>
+          </div>
+          <span className="neo-badge">{pagination.totalItems}</span>
+        </div>
+      </div>
+
+      <div className="mt-6 space-y-4">
+        {items.length === 0 ? (
+          <div className="rounded-[24px] border border-dashed border-[var(--border)] px-5 py-8 text-sm text-[var(--muted)]">
+            {emptyText}
+          </div>
+        ) : (
+          items.map((student) => (
+            <StudentRowCard
+              key={student._id}
+              student={student}
+              meta={[
+                { label: "Enrollment", value: student.enrollmentNumber },
+                { label: "Phone", value: student.phone },
+                { label: "Guardian", value: student.guardianName },
+              ]}
+              actions={actionsForStudent(student)}
+            />
+          ))
+        )}
+      </div>
+
+      <div className="mt-6">
+        <PaginationControls
+          page={pagination.page}
+          totalPages={pagination.totalPages}
+          totalItems={pagination.totalItems}
+          pageSize={pagination.limit}
+          onPageChange={onPageChange}
+          label={paginationLabel}
+        />
+      </div>
+    </section>
+  );
+}
+
 export default function StudentsPage() {
   const { auth } = useAppContext();
   const token = auth?.token;
@@ -58,6 +191,8 @@ export default function StudentsPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [deleteState, setDeleteState] = useState(null);
   const [toast, setToast] = useState(null);
+  const [activePanel, setActivePanel] = useState("all");
+  const [selectedStudent, setSelectedStudent] = useState(null);
   const [filters, setFilters] = useState({
     courseId: "",
     batchId: "",
@@ -77,10 +212,7 @@ export default function StudentsPage() {
   });
 
   const loadCourses = async () => {
-    const [coursesRes, batchesRes] = await Promise.all([
-      api.get("/courses", { headers }),
-      api.get("/batches", { headers }),
-    ]);
+    const [coursesRes, batchesRes] = await Promise.all([api.get("/courses", { headers }), api.get("/batches", { headers })]);
     setCourses(coursesRes.data.courses || []);
     setAllBatches(batchesRes.data.batches || []);
   };
@@ -173,6 +305,15 @@ export default function StudentsPage() {
 
     loadDeletedStudents(deletedFilters).catch(() => null);
   }, [token, deletedFilters]);
+
+  const studentTabs = useMemo(
+    () => [
+      { value: "all", label: "All Students", count: allPagination.totalItems },
+      { value: "aligned", label: "By Course / Batch", count: filteredPagination.totalItems },
+      { value: "deleted", label: "Deleted Students", count: deletedPagination.totalItems },
+    ],
+    [allPagination.totalItems, deletedPagination.totalItems, filteredPagination.totalItems]
+  );
 
   const closeModal = () => {
     setModalOpen(false);
@@ -275,13 +416,39 @@ export default function StudentsPage() {
     }
   };
 
+  const summaryCards = [
+    {
+      label: "Visible Students",
+      value:
+        activePanel === "all"
+          ? allPagination.totalItems
+          : activePanel === "aligned"
+            ? filteredPagination.totalItems
+            : deletedPagination.totalItems,
+      hint: "Count for the currently open section",
+      icon: Users,
+    },
+    {
+      label: "Available Batches",
+      value: allBatches.length,
+      hint: "Used while assigning students",
+      icon: Layers3,
+    },
+    {
+      label: "Deleted Records",
+      value: deletedPagination.totalItems,
+      hint: "Soft-deleted students ready for review",
+      icon: Archive,
+    },
+  ];
+
   return (
     <>
       <div className="space-y-6">
         <PageHeader
           eyebrow="Students"
-          title="View students by alignment and across the full system"
-          description="The left column filters students by course and aligned batches from the backend, while the right column gives you the complete searchable and sortable student list with server-side pagination."
+          title="Student management with cleaner sections and proper alignment"
+          description="The page is split into a control rail and a focused work surface so search, filters, section switching, and student actions no longer fight each other."
           action={
             <button type="button" className="neo-button-primary" onClick={openCreateModal}>
               <Plus size={18} />
@@ -290,15 +457,64 @@ export default function StudentsPage() {
           }
         />
 
-        <div className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
-          <div className="space-y-6">
-            <EntitySection
-              title="Students By Course / Batch"
-              items={filteredStudents}
-              count={filteredPagination.totalItems}
-              emptyText="No students found for this course/batch combination."
-              controls={
-                <div className="grid gap-3 md:grid-cols-2">
+        <div className="grid gap-4 md:grid-cols-3">
+          {summaryCards.map((card) => (
+            <StatCard key={card.label} label={card.label} value={card.value} hint={card.hint} icon={card.icon} />
+          ))}
+        </div>
+
+        <div className="grid gap-6 xl:grid-cols-[340px_minmax(0,1fr)]">
+          <aside className="space-y-6">
+            <section className="neo-panel rounded-[32px] p-5 md:p-6">
+              <p className="text-sm uppercase tracking-[0.24em] text-[var(--accent)]">Sections</p>
+              <h2 className="mt-3 text-2xl font-semibold tracking-[-0.03em]">Choose the student view</h2>
+              <p className="mt-2 text-sm leading-7 text-[var(--muted)]">
+                Each section has its own clean workspace instead of mixing every state on one screen.
+              </p>
+              <div className="mt-5">
+                <SegmentedTabs tabs={studentTabs} value={activePanel} onChange={setActivePanel} className="flex-col" />
+              </div>
+            </section>
+
+            {activePanel === "all" ? (
+              <section className="neo-panel rounded-[32px] p-5 md:p-6">
+                <p className="text-sm uppercase tracking-[0.24em] text-[var(--accent)]">All Students Filters</p>
+                <div className="mt-5 space-y-4">
+                  <SearchField
+                    value={allFilters.search}
+                    onChange={(value) => setAllFilters((current) => ({ ...current, search: value, page: 1 }))}
+                    placeholder="Search name, email, enrollment, phone"
+                  />
+                  <SelectField
+                    label="Sort By"
+                    value={allFilters.sortBy}
+                    onChange={(event) =>
+                      setAllFilters((current) => ({ ...current, sortBy: event.target.value, page: 1 }))
+                    }
+                  >
+                    <option value="createdAt">Newest</option>
+                    <option value="name">Name</option>
+                    <option value="email">Email</option>
+                    <option value="enrollmentNumber">Enrollment No.</option>
+                  </SelectField>
+                  <SelectField
+                    label="Order"
+                    value={allFilters.sortOrder}
+                    onChange={(event) =>
+                      setAllFilters((current) => ({ ...current, sortOrder: event.target.value, page: 1 }))
+                    }
+                  >
+                    <option value="desc">Descending</option>
+                    <option value="asc">Ascending</option>
+                  </SelectField>
+                </div>
+              </section>
+            ) : null}
+
+            {activePanel === "aligned" ? (
+              <section className="neo-panel rounded-[32px] p-5 md:p-6">
+                <p className="text-sm uppercase tracking-[0.24em] text-[var(--accent)]">Alignment Filters</p>
+                <div className="mt-5 space-y-4">
                   <SelectField
                     label="Course"
                     value={filters.courseId}
@@ -338,158 +554,23 @@ export default function StudentsPage() {
                     ))}
                   </SelectField>
                 </div>
-              }
-            >
-              {(student) => (
-                <EntityCard
-                  key={student._id}
-                  title={student.name}
-                  subtitle={`${student.batch?.batchName || "No batch"} | ${student.enrollmentNumber}`}
-                  meta={student.email}
-                  actions={
-                    <>
-                      <button type="button" className="neo-button" onClick={() => handleEdit(student)}>
-                        <Pencil size={16} />
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        className="neo-button-danger"
-                        onClick={() => setDeleteState({ id: student._id, label: student.name, type: "soft" })}
-                      >
-                        <Trash2 size={16} />
-                        Delete
-                      </button>
-                    </>
-                  }
-                />
-              )}
-            </EntitySection>
+              </section>
+            ) : null}
 
-            <PaginationControls
-              page={filteredPagination.page}
-              totalPages={filteredPagination.totalPages}
-              totalItems={filteredPagination.totalItems}
-              pageSize={filteredPagination.limit}
-              onPageChange={(page) => setFilters((current) => ({ ...current, page }))}
-              label="filtered students"
-            />
-          </div>
-
-          <div className="space-y-6">
-            <EntitySection
-              title="All Students"
-              items={allStudents}
-              count={allPagination.totalItems}
-              emptyText="No students found."
-              controls={
-                <div className="grid gap-3 lg:grid-cols-[1.4fr_0.8fr_0.8fr]">
-                  <SearchField
-                    value={allFilters.search}
-                    onChange={(value) =>
-                      setAllFilters((current) => ({
-                        ...current,
-                        search: value,
-                        page: 1,
-                      }))
-                    }
-                    placeholder="Search name, email, enrollment, phone"
-                  />
-                  <SelectField
-                    label="Sort By"
-                    value={allFilters.sortBy}
-                    onChange={(event) =>
-                      setAllFilters((current) => ({
-                        ...current,
-                        sortBy: event.target.value,
-                        page: 1,
-                      }))
-                    }
-                  >
-                    <option value="createdAt">Newest</option>
-                    <option value="name">Name</option>
-                    <option value="email">Email</option>
-                    <option value="enrollmentNumber">Enrollment No.</option>
-                  </SelectField>
-                  <SelectField
-                    label="Order"
-                    value={allFilters.sortOrder}
-                    onChange={(event) =>
-                      setAllFilters((current) => ({
-                        ...current,
-                        sortOrder: event.target.value,
-                        page: 1,
-                      }))
-                    }
-                  >
-                    <option value="desc">Descending</option>
-                    <option value="asc">Ascending</option>
-                  </SelectField>
-                </div>
-              }
-            >
-              {(student) => (
-                <EntityCard
-                  key={student._id}
-                  title={student.name}
-                  subtitle={`${student.email} | ${student.batch?.batchName || "No batch"} | ${student.enrollmentNumber}`}
-                  meta={student.phone || "No phone provided"}
-                  actions={
-                    <>
-                      <button type="button" className="neo-button" onClick={() => handleEdit(student)}>
-                        <Pencil size={16} />
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        className="neo-button-danger"
-                        onClick={() => setDeleteState({ id: student._id, label: student.name, type: "soft" })}
-                      >
-                        <Trash2 size={16} />
-                        Delete
-                      </button>
-                    </>
-                  }
-                />
-              )}
-            </EntitySection>
-
-            <PaginationControls
-              page={allPagination.page}
-              totalPages={allPagination.totalPages}
-              totalItems={allPagination.totalItems}
-              pageSize={allPagination.limit}
-              onPageChange={(page) => setAllFilters((current) => ({ ...current, page }))}
-              label="students"
-            />
-
-            <EntitySection
-              title="Deleted Students"
-              items={deletedStudents}
-              count={deletedPagination.totalItems}
-              emptyText="No deleted students."
-              controls={
-                <div className="grid gap-3 lg:grid-cols-[1.4fr_0.8fr_0.8fr]">
+            {activePanel === "deleted" ? (
+              <section className="neo-panel rounded-[32px] p-5 md:p-6">
+                <p className="text-sm uppercase tracking-[0.24em] text-[var(--accent)]">Deleted Filters</p>
+                <div className="mt-5 space-y-4">
                   <SearchField
                     value={deletedFilters.search}
-                    onChange={(value) =>
-                      setDeletedFilters((current) => ({
-                        ...current,
-                        search: value,
-                        page: 1,
-                      }))
-                    }
+                    onChange={(value) => setDeletedFilters((current) => ({ ...current, search: value, page: 1 }))}
                     placeholder="Search deleted students"
                   />
                   <SelectField
                     label="Sort By"
                     value={deletedFilters.sortBy}
                     onChange={(event) =>
-                      setDeletedFilters((current) => ({
-                        ...current,
-                        sortBy: event.target.value,
-                        page: 1,
-                      }))
+                      setDeletedFilters((current) => ({ ...current, sortBy: event.target.value, page: 1 }))
                     }
                   >
                     <option value="createdAt">Newest</option>
@@ -501,53 +582,116 @@ export default function StudentsPage() {
                     label="Order"
                     value={deletedFilters.sortOrder}
                     onChange={(event) =>
-                      setDeletedFilters((current) => ({
-                        ...current,
-                        sortOrder: event.target.value,
-                        page: 1,
-                      }))
+                      setDeletedFilters((current) => ({ ...current, sortOrder: event.target.value, page: 1 }))
                     }
                   >
                     <option value="desc">Descending</option>
                     <option value="asc">Ascending</option>
                   </SelectField>
                 </div>
-              }
-            >
-              {(student) => (
-                <EntityCard
-                  key={student._id}
-                  title={student.name}
-                  subtitle={`${student.email} | ${student.enrollmentNumber}`}
-                  meta="Deleted records"
-                  actions={
-                    <>
-                      <button type="button" className="neo-button" onClick={() => restoreStudent(student._id)}>
-                        <RotateCcw size={16} />
-                        Restore
-                      </button>
-                      <button
-                        type="button"
-                        className="neo-button-danger"
-                        onClick={() => setDeleteState({ id: student._id, label: student.name, type: "hard" })}
-                      >
-                        <Trash2 size={16} />
-                        Delete
-                      </button>
-                    </>
-                  }
-                />
-              )}
-            </EntitySection>
+              </section>
+            ) : null}
+          </aside>
 
-            <PaginationControls
-              page={deletedPagination.page}
-              totalPages={deletedPagination.totalPages}
-              totalItems={deletedPagination.totalItems}
-              pageSize={deletedPagination.limit}
-              onPageChange={(page) => setDeletedFilters((current) => ({ ...current, page }))}
-              label="deleted students"
-            />
+          <div className="min-w-0">
+            {activePanel === "all" ? (
+              <StudentListSection
+                title="All Students"
+                eyebrow="Main Registry"
+                description="The primary list for active students, with search and sorting isolated in the left rail for cleaner visual rhythm."
+                items={allStudents}
+                pagination={allPagination}
+                emptyText="No students found."
+                paginationLabel="students"
+                onPageChange={(page) => setAllFilters((current) => ({ ...current, page }))}
+                actionsForStudent={(student) => (
+                  <>
+                    <button type="button" className="neo-button" onClick={() => setSelectedStudent(student)}>
+                      <Eye size={16} />
+                      View
+                    </button>
+                    <button type="button" className="neo-button" onClick={() => handleEdit(student)}>
+                      <Pencil size={16} />
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      className="neo-button-danger"
+                      onClick={() => setDeleteState({ id: student._id, label: student.name, type: "soft" })}
+                    >
+                      <Trash2 size={16} />
+                      Delete
+                    </button>
+                  </>
+                )}
+              />
+            ) : null}
+
+            {activePanel === "aligned" ? (
+              <StudentListSection
+                title="Students By Course / Batch"
+                eyebrow="Aligned View"
+                description="Use this section when you need a tighter academic slice instead of the full registry."
+                items={filteredStudents}
+                pagination={filteredPagination}
+                emptyText="No students found for this course and batch combination."
+                paginationLabel="filtered students"
+                onPageChange={(page) => setFilters((current) => ({ ...current, page }))}
+                actionsForStudent={(student) => (
+                  <>
+                    <button type="button" className="neo-button" onClick={() => setSelectedStudent(student)}>
+                      <Eye size={16} />
+                      View
+                    </button>
+                    <button type="button" className="neo-button" onClick={() => handleEdit(student)}>
+                      <Pencil size={16} />
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      className="neo-button-danger"
+                      onClick={() => setDeleteState({ id: student._id, label: student.name, type: "soft" })}
+                    >
+                      <Trash2 size={16} />
+                      Delete
+                    </button>
+                  </>
+                )}
+              />
+            ) : null}
+
+            {activePanel === "deleted" ? (
+              <StudentListSection
+                title="Deleted Students"
+                eyebrow="Archive"
+                description="Deleted records are separated here so the main registry stays professional and easy to scan."
+                items={deletedStudents}
+                pagination={deletedPagination}
+                emptyText="No deleted students."
+                paginationLabel="deleted students"
+                onPageChange={(page) => setDeletedFilters((current) => ({ ...current, page }))}
+                actionsForStudent={(student) => (
+                  <>
+                    <button type="button" className="neo-button" onClick={() => setSelectedStudent(student)}>
+                      <Eye size={16} />
+                      View
+                    </button>
+                    <button type="button" className="neo-button" onClick={() => restoreStudent(student._id)}>
+                      <RotateCcw size={16} />
+                      Restore
+                    </button>
+                    <button
+                      type="button"
+                      className="neo-button-danger"
+                      onClick={() => setDeleteState({ id: student._id, label: student.name, type: "hard" })}
+                    >
+                      <Trash2 size={16} />
+                      Delete Permanently
+                    </button>
+                  </>
+                )}
+              />
+            ) : null}
           </div>
         </div>
       </div>
@@ -556,16 +700,11 @@ export default function StudentsPage() {
         open={modalOpen}
         onClose={closeModal}
         title={editingId ? "Edit student" : "Add student"}
-        subtitle="Add or update a student, and let the backend enforce batch alignment."
+        subtitle="Student creation and editing now follows the same cleaner section-based structure."
         footer={
-          <>
-            <button type="button" className="neo-button" onClick={closeModal}>
-              Cancel
-            </button>
-            <button type="submit" form="student-form" className="neo-button-primary">
-              {editingId ? "Update Student" : "Create Student"}
-            </button>
-          </>
+          <button type="submit" form="student-form" className="neo-button-primary">
+            {editingId ? "Update Student" : "Create Student"}
+          </button>
         }
         size="wide"
       >
@@ -612,14 +751,18 @@ export default function StudentsPage() {
             onChange={(value) => setForm({ ...form, guardianPhone: value })}
           />
           <div className="md:col-span-2">
-            <TextareaField
-              label="Address"
-              value={form.address}
-              onChange={(value) => setForm({ ...form, address: value })}
-            />
+            <TextareaField label="Address" value={form.address} onChange={(value) => setForm({ ...form, address: value })} />
           </div>
         </form>
       </Modal>
+
+      <DetailModal
+        open={Boolean(selectedStudent)}
+        onClose={() => setSelectedStudent(null)}
+        title={selectedStudent?.name || "Student Details"}
+        subtitle="Full student information in the same blurred neumorphic overlay."
+        sections={buildStudentSections(selectedStudent)}
+      />
 
       <ConfirmDialog
         open={Boolean(deleteState)}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Search, X } from "lucide-react";
+import { Search } from "lucide-react";
 
 export function PageHeader({ eyebrow, title, description, action }) {
   return (
@@ -73,7 +73,70 @@ export function EntityCard({ title, subtitle, meta, actions }) {
   );
 }
 
-export function Modal({ open, title, subtitle, children, onClose, footer, size = "default" }) {
+export function SegmentedTabs({ tabs, value, onChange, className = "" }) {
+  return (
+    <div className={`neo-tab-strip ${className}`.trim()}>
+      {tabs.map((tab) => {
+        const active = tab.value === value;
+        return (
+          <button
+            key={tab.value}
+            type="button"
+            onClick={() => onChange(tab.value)}
+            className={active ? "neo-tab-button neo-tab-button-active" : "neo-tab-button"}
+          >
+            <span>{tab.label}</span>
+            {typeof tab.count === "number" ? <span className="neo-tab-count">{tab.count}</span> : null}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+export function DetailList({ items = [], columns = 2 }) {
+  return (
+    <div className={`grid gap-4 ${columns === 1 ? "md:grid-cols-1" : "md:grid-cols-2"}`}>
+      {items.map((item) => (
+        <div key={item.label} className="neo-soft rounded-[22px] p-4">
+          <p className="text-xs uppercase tracking-[0.22em] text-[var(--accent)]">{item.label}</p>
+          <p className="mt-2 text-sm leading-7 text-[var(--muted)]">{item.value || "Not available"}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function DetailModal({ open, title, subtitle, sections = [], onClose }) {
+  return (
+    <Modal open={open} onClose={onClose} title={title} subtitle={subtitle} size="wide">
+      <div className="space-y-5">
+        {sections.map((section) => (
+          <section key={section.title} className="space-y-3">
+            <div>
+              <p className="text-sm uppercase tracking-[0.24em] text-[var(--accent)]">{section.title}</p>
+              {section.description ? (
+                <p className="mt-2 text-sm text-[var(--muted)]">{section.description}</p>
+              ) : null}
+            </div>
+            <DetailList items={section.items} columns={section.columns} />
+          </section>
+        ))}
+      </div>
+    </Modal>
+  );
+}
+
+export function Modal({
+  open,
+  title,
+  subtitle,
+  children,
+  onClose,
+  footer,
+  size = "default",
+  headerActions,
+}) {
   const [mounted, setMounted] = useState(open);
   const [visible, setVisible] = useState(open);
 
@@ -117,15 +180,18 @@ export function Modal({ open, title, subtitle, children, onClose, footer, size =
         }`}
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="flex items-start justify-between gap-4">
+        <div className="modal-header flex items-start justify-between gap-4">
           <div>
             <p className="text-sm uppercase tracking-[0.24em] text-[var(--accent)]">Form Modal</p>
             <h3 className="mt-3 text-3xl font-semibold tracking-[-0.03em]">{title}</h3>
             {subtitle ? <p className="mt-3 text-sm text-[var(--muted)]">{subtitle}</p> : null}
           </div>
-          <button type="button" className="neo-icon" onClick={onClose}>
-            <X size={18} />
-          </button>
+          <div className="flex items-center gap-3">
+            {headerActions}
+            <button type="button" className="neo-button" onClick={onClose}>
+              Cancel
+            </button>
+          </div>
         </div>
         <div className="mt-6">{children}</div>
         {footer ? <div className="mt-6 flex flex-wrap justify-end gap-3">{footer}</div> : null}
@@ -222,18 +288,13 @@ export function ConfirmDialog({
       title={title}
       subtitle={description}
       footer={
-        <>
-          <button type="button" className="neo-button" onClick={onCancel}>
-            {cancelLabel}
-          </button>
-          <button
-            type="button"
-            className={tone === "danger" ? "neo-button-danger" : "neo-button-primary"}
-            onClick={onConfirm}
-          >
-            {confirmLabel}
-          </button>
-        </>
+        <button
+          type="button"
+          className={tone === "danger" ? "neo-button-danger" : "neo-button-primary"}
+          onClick={onConfirm}
+        >
+          {confirmLabel}
+        </button>
       }
     >
       <div className="rounded-[22px] border border-[var(--border)]/60 bg-white/20 p-4 text-sm text-[var(--muted)] backdrop-blur-md dark:bg-white/5">

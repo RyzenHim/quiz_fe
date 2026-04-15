@@ -1,16 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Eye, Pencil, Plus, Trash2 } from "lucide-react";
 import { useAppContext } from "../../../components/app-provider";
 import api from "../../../lib/api";
 import {
   ConfirmDialog,
+  DetailModal,
   EntityCard,
   EntitySection,
   InputField,
   Modal,
   PageHeader,
+  SegmentedTabs,
   TextareaField,
   Toast,
 } from "../../../components/ui-kit";
@@ -28,6 +30,35 @@ export default function SkillsPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [deleteState, setDeleteState] = useState(null);
   const [toast, setToast] = useState(null);
+  const [activePanel, setActivePanel] = useState("active");
+  const [selectedSkill, setSelectedSkill] = useState(null);
+
+  const skillSections = selectedSkill
+    ? [
+        {
+          title: "Skill Overview",
+          items: [
+            { label: "Name", value: selectedSkill.name },
+            { label: "Description", value: selectedSkill.description },
+            { label: "Topics Count", value: String((selectedSkill.topics || []).length) },
+            { label: "Status", value: selectedSkill.isDeleted ? "Deleted" : "Active" },
+          ],
+        },
+        {
+          title: "Topics",
+          items: [
+            {
+              label: "Topic List",
+              value: (selectedSkill.topics || []).map((topic) => topic.title).join(", "),
+            },
+            {
+              label: "Created",
+              value: selectedSkill.createdAt ? new Date(selectedSkill.createdAt).toLocaleString() : "",
+            },
+          ],
+        },
+      ]
+    : [];
 
   const loadData = async () => {
     const [activeRes, deletedRes] = await Promise.all([
@@ -127,7 +158,24 @@ export default function SkillsPage() {
           }
         />
 
-        <div className="grid gap-6 xl:grid-cols-2">
+        <section className="neo-panel rounded-[30px] p-4 md:p-6">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p className="text-sm uppercase tracking-[0.24em] text-[var(--accent)]">Skill Views</p>
+              <h2 className="mt-2 text-2xl font-semibold tracking-[-0.03em]">Browse active skills without deleted noise on the same screen</h2>
+            </div>
+            <SegmentedTabs
+              tabs={[
+                { value: "active", label: "Active Skills", count: skills.length },
+                { value: "deleted", label: "Deleted Skills", count: deletedSkills.length },
+              ]}
+              value={activePanel}
+              onChange={setActivePanel}
+            />
+          </div>
+        </section>
+
+        {activePanel === "active" ? (
           <EntitySection title="Active Skills" items={skills} emptyText="No active skills found.">
             {(skill) => (
               <EntityCard
@@ -137,6 +185,10 @@ export default function SkillsPage() {
                 meta={skill.description || "No description"}
                 actions={
                   <>
+                    <button type="button" className="neo-button" onClick={() => setSelectedSkill(skill)}>
+                      <Eye size={16} />
+                      View
+                    </button>
                     <button type="button" className="neo-button" onClick={() => handleEdit(skill)}>
                       <Pencil size={16} />
                       Edit
@@ -154,7 +206,9 @@ export default function SkillsPage() {
               />
             )}
           </EntitySection>
+        ) : null}
 
+        {activePanel === "deleted" ? (
           <EntitySection title="Deleted Skills" items={deletedSkills} emptyText="No deleted skills.">
             {(skill) => (
               <EntityCard
@@ -163,19 +217,25 @@ export default function SkillsPage() {
                 subtitle={skill.description || "No description"}
                 meta="Deleted records"
                 actions={
-                  <button
-                    type="button"
-                    className="neo-button-danger"
-                    onClick={() => setDeleteState({ id: skill._id, type: "hard", label: skill.name })}
-                  >
-                    <Trash2 size={16} />
-                    Delete Permanently
-                  </button>
+                  <>
+                    <button type="button" className="neo-button" onClick={() => setSelectedSkill(skill)}>
+                      <Eye size={16} />
+                      View
+                    </button>
+                    <button
+                      type="button"
+                      className="neo-button-danger"
+                      onClick={() => setDeleteState({ id: skill._id, type: "hard", label: skill.name })}
+                    >
+                      <Trash2 size={16} />
+                      Delete Permanently
+                    </button>
+                  </>
                 }
               />
             )}
           </EntitySection>
-        </div>
+        ) : null}
       </div>
 
       <Modal
@@ -184,14 +244,9 @@ export default function SkillsPage() {
         title={editingId ? "Edit skill" : "Create skill"}
         subtitle="Define a skill and its topics in a single focused overlay."
         footer={
-          <>
-            <button type="button" className="neo-button" onClick={closeModal}>
-              Cancel
-            </button>
-            <button type="submit" form="skill-form" className="neo-button-primary">
-              {editingId ? "Update Skill" : "Create Skill"}
-            </button>
-          </>
+          <button type="submit" form="skill-form" className="neo-button-primary">
+            {editingId ? "Update Skill" : "Create Skill"}
+          </button>
         }
       >
         <form id="skill-form" onSubmit={handleSubmit} className="grid gap-4">
@@ -216,6 +271,14 @@ export default function SkillsPage() {
         title={deleteState?.type === "hard" ? "Delete skill permanently?" : "Remove skill from active list?"}
         description={deleteState ? `${deleteState.label} is the skill affected by this action.` : ""}
         confirmLabel={deleteState?.type === "hard" ? "Delete Permanently" : "Delete Skill"}
+      />
+
+      <DetailModal
+        open={Boolean(selectedSkill)}
+        onClose={() => setSelectedSkill(null)}
+        title={selectedSkill?.name || "Skill Details"}
+        subtitle="Expanded skill information inside the same blur-backed modal system."
+        sections={skillSections}
       />
 
       <Toast toast={toast} onClose={() => setToast(null)} />
