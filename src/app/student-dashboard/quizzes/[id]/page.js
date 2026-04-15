@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { AlarmClock, BookOpenText, CircleHelp, Layers3, UserSquare2 } from "lucide-react";
 import { useAppContext } from "../../../../components/app-provider";
-import api from "../../../../lib/api";
+import { getCached } from "../../../../lib/api";
 
 const formatDateTime = (value) => {
   if (!value) {
@@ -28,7 +28,7 @@ export default function StudentQuizDetailPage() {
         return;
       }
 
-      const response = await api.get(`/student/quizzes/${params.id}`, {
+      const response = await getCached(`/student/quizzes/${params.id}`, {
         headers: {
           Authorization: `Bearer ${auth.token}`,
         },
@@ -106,11 +106,16 @@ export default function StudentQuizDetailPage() {
             </Link>
             <button
               type="button"
-              onClick={() => router.push(`/student-dashboard/quizzes/${quiz._id}/attempt`)}
-              disabled={quiz.alreadySubmitted}
-              className="rounded-2xl bg-[var(--accent)] px-5 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+              onClick={() =>
+                router.push(
+                  quiz.alreadySubmitted
+                    ? `/student-dashboard/quizzes/${quiz._id}/result`
+                    : `/student-dashboard/quizzes/${quiz._id}/attempt`
+                )
+              }
+              className="rounded-2xl bg-[var(--accent)] px-5 py-3 text-sm font-semibold text-white"
             >
-              {quiz.alreadySubmitted ? "Already attempted" : "Take quiz"}
+              {quiz.alreadySubmitted ? "View result" : "Take quiz"}
             </button>
           </div>
         </div>

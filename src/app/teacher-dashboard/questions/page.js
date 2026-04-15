@@ -166,6 +166,17 @@ export default function QuestionsPage() {
     () => skills.find((skill) => skill._id === (editingId ? editForm.skill : sharedContext.skill)),
     [editForm.skill, editingId, sharedContext.skill, skills]
   );
+  const selectedSharedTopic = useMemo(
+    () => (selectedSkill?.topics || []).find((topic) => topic._id === sharedContext.topicId),
+    [selectedSkill, sharedContext.topicId]
+  );
+  const selectedEditTopic = useMemo(
+    () =>
+      skills
+        .find((skill) => skill._id === editForm.skill)
+        ?.topics?.find((topic) => topic._id === editForm.topicId),
+    [editForm.skill, editForm.topicId, skills]
+  );
   const questionSections = selectedQuestion
     ? [
         {
@@ -418,40 +429,51 @@ export default function QuestionsPage() {
 
   const renderSharedContext = () => (
     <div className="grid gap-4 md:grid-cols-2">
-      <SelectField
-        label="Skill"
-        value={sharedContext.skill}
-        onChange={(event) =>
-          setSharedContext({
-            skill: event.target.value,
-            topicId: "",
-          })
-        }
-      >
-        <option value="">Select skill</option>
-        {skills.map((skill) => (
-          <option key={skill._id} value={skill._id}>
-            {skill.name}
-          </option>
-        ))}
-      </SelectField>
-      <SelectField
-        label="Topic"
-        value={sharedContext.topicId}
-        onChange={(event) =>
-          setSharedContext((current) => ({
-            ...current,
-            topicId: event.target.value,
-          }))
-        }
-      >
-        <option value="">Select topic</option>
-        {(selectedSkill?.topics || []).map((topic) => (
-          <option key={topic._id} value={topic._id}>
-            {topic.title}
-          </option>
-        ))}
-      </SelectField>
+      <div className="space-y-3">
+        <SelectField
+          label="Skill"
+          value={sharedContext.skill}
+          onChange={(event) =>
+            setSharedContext({
+              skill: event.target.value,
+              topicId: "",
+            })
+          }
+        >
+          <option value="">Select skill</option>
+          {skills.map((skill) => (
+            <option key={skill._id} value={skill._id}>
+              {skill.name}
+            </option>
+          ))}
+        </SelectField>
+      </div>
+      <div className="space-y-3">
+        <SelectField
+          label="Topic"
+          value={sharedContext.topicId}
+          onChange={(event) =>
+            setSharedContext((current) => ({
+              ...current,
+              topicId: event.target.value,
+            }))
+          }
+        >
+          <option value="">Select topic</option>
+          {(selectedSkill?.topics || []).map((topic) => (
+            <option key={topic._id} value={topic._id}>
+              {topic.title}
+            </option>
+          ))}
+        </SelectField>
+        {selectedSharedTopic ? (
+          <div className="rounded-[18px] border border-[var(--border)]/70 bg-white/18 px-4 py-3 text-sm text-[var(--muted)] backdrop-blur-md dark:bg-white/5">
+            <p className="text-xs uppercase tracking-[0.2em] text-[var(--accent)]">Topic Context</p>
+            <p className="mt-2 font-medium text-[var(--foreground)]">{selectedSharedTopic.title}</p>
+            <p className="mt-1">{selectedSharedTopic.description || "No topic description provided."}</p>
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 
@@ -691,18 +713,27 @@ export default function QuestionsPage() {
                 </option>
               ))}
             </SelectField>
-            <SelectField
-              label="Topic"
-              value={editForm.topicId}
-              onChange={(event) => setEditForm({ ...editForm, topicId: event.target.value })}
-            >
-              <option value="">Select topic</option>
-              {(selectedSkill?.topics || []).map((topic) => (
-                <option key={topic._id} value={topic._id}>
-                  {topic.title}
-                </option>
-              ))}
-            </SelectField>
+            <div className="space-y-3">
+              <SelectField
+                label="Topic"
+                value={editForm.topicId}
+                onChange={(event) => setEditForm({ ...editForm, topicId: event.target.value })}
+              >
+                <option value="">Select topic</option>
+                {(selectedSkill?.topics || []).map((topic) => (
+                  <option key={topic._id} value={topic._id}>
+                    {topic.title}
+                  </option>
+                ))}
+              </SelectField>
+              {selectedEditTopic ? (
+                <div className="rounded-[18px] border border-[var(--border)]/70 bg-white/18 px-4 py-3 text-sm text-[var(--muted)] backdrop-blur-md dark:bg-white/5">
+                  <p className="text-xs uppercase tracking-[0.2em] text-[var(--accent)]">Topic Context</p>
+                  <p className="mt-2 font-medium text-[var(--foreground)]">{selectedEditTopic.title}</p>
+                  <p className="mt-1">{selectedEditTopic.description || "No topic description provided."}</p>
+                </div>
+              ) : null}
+            </div>
             <SelectField
               label="Type"
               value={editForm.type}

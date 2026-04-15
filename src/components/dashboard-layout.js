@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import {
   BookOpen,
@@ -29,10 +29,14 @@ const teacherMenu = [
   { name: "Profile", shortName: "Profile", path: "/teacher-dashboard/profile", icon: UserRoundCog },
 ];
 
+const COLLAPSED_SIDEBAR_WIDTH = 88;
+const EXPANDED_SIDEBAR_WIDTH = 240;
+
 export function DashboardLayout({ children, role = "teacher" }) {
   const pathname = usePathname();
   const router = useRouter();
   const { auth, logout, theme, toggleTheme, isReady } = useAppContext();
+  const [sidebarExpanded, setSidebarExpanded] = useState(false);
 
   useEffect(() => {
     if (!isReady) {
@@ -58,26 +62,47 @@ export function DashboardLayout({ children, role = "teacher" }) {
 
   return (
     <div className="app-shell">
-      <aside className="group fixed left-0 top-0 z-40 hidden h-screen md:block md:w-[104px]">
+      <div
+        className="hidden h-screen md:grid"
+        style={{
+          gridTemplateColumns: `${sidebarExpanded ? EXPANDED_SIDEBAR_WIDTH : COLLAPSED_SIDEBAR_WIDTH}px minmax(0, 1fr)`,
+        }}
+      >
+      <aside
+        className="dashboard-sidebar z-40 block border-r border-white/10"
+        onMouseEnter={() => setSidebarExpanded(true)}
+        onMouseLeave={() => setSidebarExpanded(false)}
+      >
         <div
-          className="theme-transition flex h-full w-[104px] flex-col justify-between overflow-hidden border-r border-white/10 p-4 text-white duration-300 ease-out group-hover:w-72 group-hover:shadow-[0_24px_80px_rgba(0,0,0,0.28)]"
-          style={{ background: "var(--sidebar)" }}
+          className="theme-transition flex h-full flex-col justify-between overflow-hidden p-3 text-white duration-200 ease-out"
+          style={{
+            width: `${sidebarExpanded ? EXPANDED_SIDEBAR_WIDTH : COLLAPSED_SIDEBAR_WIDTH}px`,
+            boxShadow: sidebarExpanded ? "0 18px 48px rgba(0,0,0,0.2)" : "none",
+            background: "var(--sidebar)",
+          }}
         >
-          <div>
-            <div className="mb-8 overflow-hidden rounded-[30px] border border-white/10 bg-white/6 p-4">
+          <div className="min-h-0 flex-1">
+            <div className="mb-5 overflow-hidden rounded-[22px] border border-white/10 bg-white/6 p-3">
               <p className="text-[10px] uppercase tracking-[0.32em] text-emerald-200/70">Quiz App</p>
-              <div className="mt-4 flex items-center gap-3">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/10 text-lg font-semibold">
+              <div className="mt-3 flex items-center gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/10 text-base font-semibold">
                   {(auth?.user?.name || "T").charAt(0).toUpperCase()}
                 </div>
-                <div className="pointer-events-none max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 ease-out group-hover:pointer-events-auto group-hover:max-w-[11rem] group-hover:opacity-100">
-                  <p className="text-lg font-semibold">{auth?.user?.name || "Teacher"}</p>
+                <div
+                  className="overflow-hidden whitespace-nowrap transition-all duration-200 ease-out"
+                  style={{
+                    maxWidth: sidebarExpanded ? "10rem" : "0rem",
+                    opacity: sidebarExpanded ? 1 : 0,
+                    pointerEvents: sidebarExpanded ? "auto" : "none",
+                  }}
+                >
+                  <p className="text-base font-semibold">{auth?.user?.name || "Teacher"}</p>
                   <p className="text-xs text-slate-300">{auth?.user?.specialization || "Faculty"}</p>
                 </div>
               </div>
             </div>
 
-            <nav className="space-y-3">
+            <nav className="space-y-2 pr-1">
               {menu.map((item) => {
                 const Icon = item.icon;
                 const isActive = pathname === item.path;
@@ -86,17 +111,30 @@ export function DashboardLayout({ children, role = "teacher" }) {
                   <Link
                     key={item.path}
                     href={item.path}
-                    className={`relative flex min-h-[4rem] items-center gap-3 overflow-hidden rounded-2xl px-4 py-3 transition duration-300 ${
+                    className={`relative flex min-h-[3.25rem] items-center gap-3 overflow-hidden rounded-xl px-3 py-2.5 transition duration-200 ${
                       isActive ? "bg-white/14 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]" : "hover:bg-white/8"
                     }`}
                   >
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white/10">
-                      <Icon size={18} />
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/10">
+                      <Icon size={17} />
                     </span>
-                    <span className="pointer-events-none max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 ease-out group-hover:pointer-events-auto group-hover:max-w-[8.5rem] group-hover:opacity-100">
+                    <span
+                      className="overflow-hidden whitespace-nowrap transition-all duration-200 ease-out"
+                      style={{
+                        maxWidth: sidebarExpanded ? "8rem" : "0rem",
+                        opacity: sidebarExpanded ? 1 : 0,
+                        pointerEvents: sidebarExpanded ? "auto" : "none",
+                      }}
+                    >
                       {item.name}
                     </span>
-                    <span className="ml-auto text-xs text-slate-300 transition-all duration-200 group-hover:translate-x-2 group-hover:opacity-0">
+                    <span
+                      className="ml-auto text-[11px] text-slate-300 transition-all duration-150"
+                      style={{
+                        transform: sidebarExpanded ? "translateX(8px)" : "translateX(0)",
+                        opacity: sidebarExpanded ? 0 : 1,
+                      }}
+                    >
                       {item.shortName}
                     </span>
                   </Link>
@@ -105,28 +143,42 @@ export function DashboardLayout({ children, role = "teacher" }) {
             </nav>
           </div>
 
-          <div className="space-y-3">
+          <div className="space-y-2 pt-3">
             <button
               type="button"
               onClick={toggleTheme}
-              className="flex min-h-[4rem] w-full items-center gap-3 overflow-hidden rounded-2xl border border-white/10 px-4 py-3 text-left transition duration-300 hover:bg-white/8"
+              className="flex min-h-[3.25rem] w-full items-center gap-3 overflow-hidden rounded-xl border border-white/10 px-3 py-2.5 text-left transition duration-200 hover:bg-white/8"
             >
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white/10">
-                {theme === "dark" ? <SunMedium size={18} /> : <MoonStar size={18} />}
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/10">
+                {theme === "dark" ? <SunMedium size={17} /> : <MoonStar size={17} />}
               </span>
-              <span className="pointer-events-none max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 ease-out group-hover:pointer-events-auto group-hover:max-w-[8rem] group-hover:opacity-100">
+              <span
+                className="overflow-hidden whitespace-nowrap transition-all duration-200 ease-out"
+                style={{
+                  maxWidth: sidebarExpanded ? "8rem" : "0rem",
+                  opacity: sidebarExpanded ? 1 : 0,
+                  pointerEvents: sidebarExpanded ? "auto" : "none",
+                }}
+              >
                 {theme === "dark" ? "Light mode" : "Dark mode"}
               </span>
             </button>
             <button
               type="button"
               onClick={handleLogout}
-              className="flex min-h-[4rem] w-full items-center gap-3 overflow-hidden rounded-2xl bg-red-500/90 px-4 py-3 text-left transition duration-300 hover:bg-red-500"
+              className="flex min-h-[3.25rem] w-full items-center gap-3 overflow-hidden rounded-xl bg-red-500/90 px-3 py-2.5 text-left transition duration-200 hover:bg-red-500"
             >
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white/10">
-                <LogOut size={18} />
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/10">
+                <LogOut size={17} />
               </span>
-              <span className="pointer-events-none max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 ease-out group-hover:pointer-events-auto group-hover:max-w-[6rem] group-hover:opacity-100">
+              <span
+                className="overflow-hidden whitespace-nowrap transition-all duration-200 ease-out"
+                style={{
+                  maxWidth: sidebarExpanded ? "6rem" : "0rem",
+                  opacity: sidebarExpanded ? 1 : 0,
+                  pointerEvents: sidebarExpanded ? "auto" : "none",
+                }}
+              >
                 Logout
               </span>
             </button>
@@ -134,8 +186,15 @@ export function DashboardLayout({ children, role = "teacher" }) {
         </div>
       </aside>
 
-      <main className="min-h-screen p-4 md:ml-24 md:p-8">
-        <div className="mx-auto max-w-7xl space-y-6">
+      <main className="dashboard-content p-4 md:p-5">
+        <div className="dashboard-content-inner space-y-4">
+          {children}
+        </div>
+      </main>
+      </div>
+
+      <main className="min-h-screen overflow-x-hidden p-4 md:hidden">
+        <div className="mx-auto max-w-6xl space-y-4">
           <div className="neo-panel rounded-[30px] p-6 md:hidden">
             <div>
               <p className="text-sm uppercase tracking-[0.28em] text-[var(--accent)]">Teacher Area</p>

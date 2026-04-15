@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Check, Eye, Pencil, Plus, Trash2, X } from "lucide-react";
 import { useAppContext } from "../../../components/app-provider";
-import api from "../../../lib/api";
+import api, { clearApiCache, getCached } from "../../../lib/api";
 import {
   ConfirmDialog,
   DetailModal,
@@ -90,7 +90,7 @@ export default function QuizzesPage() {
   const [selectedQuiz, setSelectedQuiz] = useState(null);
 
   const loadQuestionCatalog = async () => {
-    const firstResponse = await api.get("/questions", {
+    const firstResponse = await getCached("/questions", {
       headers,
       params: {
         page: 1,
@@ -110,7 +110,7 @@ export default function QuizzesPage() {
 
     const remainingResponses = await Promise.all(
       Array.from({ length: totalPages - 1 }, (_, index) =>
-        api.get("/questions", {
+        getCached("/questions", {
           headers,
           params: {
             page: index + 2,
@@ -130,11 +130,11 @@ export default function QuizzesPage() {
 
   const loadData = async () => {
     const [coursesRes, batchesRes, questionCatalog, quizzesRes, deletedRes] = await Promise.all([
-      api.get("/courses", { headers }),
-      api.get("/batches", { headers }),
+      getCached("/courses", { headers }),
+      getCached("/batches", { headers }),
       loadQuestionCatalog(),
-      api.get("/quiz-assignments", { headers }),
-      api.get("/quiz-assignments?deleted=true", { headers }),
+      getCached("/quiz-assignments", { headers }),
+      getCached("/quiz-assignments?deleted=true", { headers }),
     ]);
     setCourses(coursesRes.data.courses || []);
     setBatches(batchesRes.data.batches || []);
@@ -170,6 +170,10 @@ export default function QuizzesPage() {
     [alignedSkills, form.skillId]
   );
   const alignedTopics = useMemo(() => selectedSkill?.topics || [], [selectedSkill]);
+  const selectedTopic = useMemo(
+    () => alignedTopics.find((topic) => topic._id === form.topicId),
+    [alignedTopics, form.topicId]
+  );
   const requestedQuestionCount = Number(form.questionCount || 0);
   const alignedQuestions = useMemo(
     () =>
@@ -358,6 +362,7 @@ export default function QuizzesPage() {
         setToast({ variant: "success", title: "Quiz created" });
       }
 
+      clearApiCache("/quiz-assignments");
       closeModal();
       await loadData();
     } catch (error) {
@@ -384,6 +389,7 @@ export default function QuizzesPage() {
         variant: "warning",
         title: deleteState.type === "hard" ? "Quiz removed permanently" : "Quiz moved to deleted",
       });
+      clearApiCache("/quiz-assignments");
       setDeleteState(null);
       await loadData();
     } catch (error) {
@@ -773,19 +779,28 @@ export default function QuizzesPage() {
                     </option>
                   ))}
                 </SelectField>
-                <SelectField
-                  label="Aligned Topic"
-                  value={form.topicId}
-                  disabled={!form.skillId}
-                  onChange={(event) => setForm((current) => ({ ...current, topicId: event.target.value }))}
-                >
-                  <option value="">Select topic</option>
-                  {alignedTopics.map((topic) => (
-                    <option key={topic._id} value={topic._id}>
-                      {topic.title}
-                    </option>
-                  ))}
-                </SelectField>
+                <div className="space-y-3">
+                  <SelectField
+                    label="Aligned Topic"
+                    value={form.topicId}
+                    disabled={!form.skillId}
+                    onChange={(event) => setForm((current) => ({ ...current, topicId: event.target.value }))}
+                  >
+                    <option value="">Select topic</option>
+                    {alignedTopics.map((topic) => (
+                      <option key={topic._id} value={topic._id}>
+                        {topic.title}
+                      </option>
+                    ))}
+                  </SelectField>
+                  {selectedTopic ? (
+                    <div className="rounded-[18px] border border-[var(--border)]/70 bg-white/18 px-4 py-3 text-sm text-[var(--muted)] backdrop-blur-md dark:bg-white/5">
+                      <p className="text-xs uppercase tracking-[0.2em] text-[var(--accent)]">Topic Context</p>
+                      <p className="mt-2 font-medium text-[var(--foreground)]">{selectedTopic.title}</p>
+                      <p className="mt-1">{selectedTopic.description || "No topic description provided."}</p>
+                    </div>
+                  ) : null}
+                </div>
               </div>
 
               <p className="mt-4 text-sm text-[var(--muted)]">

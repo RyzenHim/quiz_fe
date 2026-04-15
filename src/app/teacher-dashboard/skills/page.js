@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Eye, Pencil, Plus, Trash2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Eye, Pencil, Plus, Trash2, Layers3, BookText } from "lucide-react";
 import { useAppContext } from "../../../components/app-provider";
 import api from "../../../lib/api";
 import {
@@ -13,11 +13,29 @@ import {
   Modal,
   PageHeader,
   SegmentedTabs,
+  StatCard,
   TextareaField,
   Toast,
 } from "../../../components/ui-kit";
 
-const emptyForm = { name: "", description: "", topicsText: "" };
+const createEmptyTopic = () => ({
+  _id: undefined,
+  title: "",
+  description: "",
+  isActive: true,
+});
+
+const emptyForm = { name: "", description: "", topics: [createEmptyTopic()] };
+
+const sanitizeTopics = (topics = []) =>
+  topics
+    .map((topic) => ({
+      _id: topic._id || undefined,
+      title: String(topic.title || "").trim(),
+      description: String(topic.description || "").trim(),
+      isActive: topic.isActive !== false,
+    }))
+    .filter((topic) => topic.title);
 
 export default function SkillsPage() {
   const { auth } = useAppContext();
@@ -33,32 +51,35 @@ export default function SkillsPage() {
   const [activePanel, setActivePanel] = useState("active");
   const [selectedSkill, setSelectedSkill] = useState(null);
 
-  const skillSections = selectedSkill
-    ? [
-        {
-          title: "Skill Overview",
-          items: [
-            { label: "Name", value: selectedSkill.name },
-            { label: "Description", value: selectedSkill.description },
-            { label: "Topics Count", value: String((selectedSkill.topics || []).length) },
-            { label: "Status", value: selectedSkill.isDeleted ? "Deleted" : "Active" },
-          ],
-        },
-        {
-          title: "Topics",
-          items: [
-            {
-              label: "Topic List",
-              value: (selectedSkill.topics || []).map((topic) => topic.title).join(", "),
-            },
-            {
-              label: "Created",
-              value: selectedSkill.createdAt ? new Date(selectedSkill.createdAt).toLocaleString() : "",
-            },
-          ],
-        },
-      ]
-    : [];
+  const skillSections = useMemo(() => {
+    if (!selectedSkill) {
+      return [];
+    }
+
+    const topicItems =
+      (selectedSkill.topics || []).map((topic, index) => ({
+        label: `Topic ${index + 1}`,
+        value: topic.description ? `${topic.title} - ${topic.description}` : topic.title,
+      })) || [];
+
+    return [
+      {
+        title: "Skill Overview",
+        items: [
+          { label: "Name", value: selectedSkill.name },
+          { label: "Description", value: selectedSkill.description },
+          { label: "Topics Count", value: String((selectedSkill.topics || []).length) },
+          { label: "Status", value: selectedSkill.isDeleted ? "Deleted" : "Active" },
+        ],
+      },
+      {
+        title: "Topics",
+        description: "Each topic can carry its own description so questions and quizzes can align more clearly.",
+        items: topicItems.length ? topicItems : [{ label: "Topic List", value: "No topics added" }],
+        columns: 1,
+      },
+    ];
+  }, [selectedSkill]);
 
   const loadData = async () => {
     const [activeRes, deletedRes] = await Promise.all([
@@ -80,25 +101,63 @@ export default function SkillsPage() {
     setForm(emptyForm);
   };
 
+  const openCreateModal = () => {
+    setEditingId(null);
+    setForm(emptyForm);
+    setModalOpen(true);
+  };
+
   const handleEdit = (skill) => {
     setEditingId(skill._id);
     setForm({
       name: skill.name || "",
       description: skill.description || "",
-      topicsText: (skill.topics || []).map((topic) => topic.title).join(", "),
+      topics:
+        (skill.topics || []).length > 0
+          ? skill.topics.map((topic) => ({
+              _id: topic._id,
+              title: topic.title || "",
+              description: topic.description || "",
+              isActive: topic.isActive !== false,
+            }))
+          : [createEmptyTopic()],
     });
     setModalOpen(true);
+  };
+
+  const updateTopic = (index, field, value) => {
+    setForm((current) => ({
+      ...current,
+      topics: current.topics.map((topic, topicIndex) =>
+        topicIndex === index ? { ...topic, [field]: value } : topic
+      ),
+    }));
+  };
+
+  const addTopicRow = () => {
+    setForm((current) => ({
+      ...current,
+      topics: [...current.topics, createEmptyTopic()],
+    }));
+  };
+
+  const removeTopicRow = (index) => {
+    setForm((current) => ({
+      ...current,
+      topics: current.topics.length === 1
+        ? [createEmptyTopic()]
+        : current.topics.filter((_, topicIndex) => topicIndex !== index),
+    }));
   };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
     try {
-      const topics = form.topicsText
-        .split(",")
-        .map((topic) => topic.trim())
-        .filter(Boolean)
-        .map((title) => ({ title }));
-      const payload = { name: form.name, description: form.description, topics };
+      const payload = {
+        name: form.name,
+        description: form.description,
+        topics: sanitizeTopics(form.topics),
+      };
 
       if (editingId) {
         await api.put(`/skills/${editingId}`, payload, { headers });
@@ -113,7 +172,7 @@ export default function SkillsPage() {
       setToast({
         variant: "error",
         title: "Unable to save skill",
-        description: error.response?.data?.message || "Please review the form and try again.",
+        description: error.response?.data?.message || "Please review the skill and topic details, then try again.",
       });
     }
   };
@@ -143,26 +202,36 @@ export default function SkillsPage() {
     }
   };
 
+  const topicCount = skills.reduce((sum, skill) => sum + (skill.topics || []).length, 0);
+
   return (
     <>
       <div className="space-y-6">
         <PageHeader
           eyebrow="Skills"
-          title="Shape topic libraries with softer, focused interactions"
-          description="Skill creation now lives in a dedicated modal so the page itself can stay calm and readable while editing."
+          title="Manage skills and their topic libraries"
+          description="Teachers can now add topics one by one, keep topic descriptions aligned, and safely preserve topic wiring for questions and quiz creation."
           action={
-            <button type="button" className="neo-button-primary" onClick={() => setModalOpen(true)}>
+            <button type="button" className="neo-button-primary" onClick={openCreateModal}>
               <Plus size={18} />
               Add Skill
             </button>
           }
         />
 
+        <div className="grid gap-4 md:grid-cols-3">
+          <StatCard label="Active Skills" value={skills.length} hint="Current teacher skill library" icon={Layers3} />
+          <StatCard label="Total Topics" value={topicCount} hint="Topics stored inside active skills" icon={BookText} />
+          <StatCard label="Deleted Skills" value={deletedSkills.length} hint="Archived skill records" icon={Trash2} />
+        </div>
+
         <section className="neo-panel rounded-[30px] p-4 md:p-6">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <p className="text-sm uppercase tracking-[0.24em] text-[var(--accent)]">Skill Views</p>
-              <h2 className="mt-2 text-2xl font-semibold tracking-[-0.03em]">Browse active skills without deleted noise on the same screen</h2>
+              <h2 className="mt-2 text-2xl font-semibold tracking-[-0.03em]">
+                Browse active skills without deleted noise on the same screen
+              </h2>
             </div>
             <SegmentedTabs
               tabs={[
@@ -181,7 +250,11 @@ export default function SkillsPage() {
               <EntityCard
                 key={skill._id}
                 title={skill.name}
-                subtitle={(skill.topics || []).map((topic) => topic.title).join(", ") || "No topics"}
+                subtitle={
+                  (skill.topics || []).length
+                    ? (skill.topics || []).map((topic) => topic.title).join(", ")
+                    : "No topics added yet"
+                }
                 meta={skill.description || "No description"}
                 actions={
                   <>
@@ -241,26 +314,77 @@ export default function SkillsPage() {
       <Modal
         open={modalOpen}
         onClose={closeModal}
-        title={editingId ? "Edit skill" : "Create skill"}
-        subtitle="Define a skill and its topics in a single focused overlay."
+        title={editingId ? "Edit skill and topics" : "Create skill and topics"}
+        subtitle="Define a skill, then manage each topic as its own structured row so questions can align safely."
+        size="wide"
         footer={
           <button type="submit" form="skill-form" className="neo-button-primary">
             {editingId ? "Update Skill" : "Create Skill"}
           </button>
         }
       >
-        <form id="skill-form" onSubmit={handleSubmit} className="grid gap-4">
-          <InputField label="Skill Name" value={form.name} onChange={(value) => setForm({ ...form, name: value })} />
-          <TextareaField
-            label="Description"
-            value={form.description}
-            onChange={(value) => setForm({ ...form, description: value })}
-          />
-          <TextareaField
-            label="Topics (comma separated)"
-            value={form.topicsText}
-            onChange={(value) => setForm({ ...form, topicsText: value })}
-          />
+        <form id="skill-form" onSubmit={handleSubmit} className="space-y-6">
+          <div className="grid gap-4 md:grid-cols-2">
+            <InputField label="Skill Name" value={form.name} onChange={(value) => setForm({ ...form, name: value })} />
+            <div className="md:col-span-1">
+              <TextareaField
+                label="Skill Description"
+                value={form.description}
+                onChange={(value) => setForm({ ...form, description: value })}
+                rows={3}
+              />
+            </div>
+          </div>
+
+          <section className="neo-soft rounded-[26px] p-5">
+            <div className="flex flex-col gap-4 border-b border-[var(--border)]/70 pb-4 md:flex-row md:items-center md:justify-between">
+              <div>
+                <p className="text-sm uppercase tracking-[0.22em] text-[var(--accent)]">Topic Manager</p>
+                <h4 className="mt-2 text-xl font-semibold">Add topics one by one</h4>
+                <p className="mt-2 text-sm text-[var(--muted)]">
+                  Topic IDs are preserved on edit, and topics already used by questions cannot be removed accidentally.
+                </p>
+              </div>
+              <button type="button" className="neo-button" onClick={addTopicRow}>
+                <Plus size={16} />
+                Add Topic
+              </button>
+            </div>
+
+            <div className="mt-5 space-y-4">
+              {form.topics.map((topic, index) => (
+                <div key={topic._id || `topic-${index}`} className="rounded-[22px] border border-[var(--border)]/70 bg-white/18 p-4 backdrop-blur-md dark:bg-white/5">
+                  <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                    <div>
+                      <p className="text-sm font-semibold">Topic {index + 1}</p>
+                      <p className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
+                        {topic._id ? `Saved Topic ID: ${topic._id}` : "New topic"}
+                      </p>
+                    </div>
+                    <button type="button" className="neo-button-danger" onClick={() => removeTopicRow(index)}>
+                      <Trash2 size={16} />
+                      Remove
+                    </button>
+                  </div>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <InputField
+                      label="Topic Title"
+                      value={topic.title}
+                      onChange={(value) => updateTopic(index, "title", value)}
+                      placeholder="useState"
+                    />
+                    <TextareaField
+                      label="Topic Description"
+                      value={topic.description}
+                      onChange={(value) => updateTopic(index, "description", value)}
+                      rows={3}
+                      placeholder="State management basics in React components"
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
         </form>
       </Modal>
 
@@ -277,7 +401,7 @@ export default function SkillsPage() {
         open={Boolean(selectedSkill)}
         onClose={() => setSelectedSkill(null)}
         title={selectedSkill?.name || "Skill Details"}
-        subtitle="Expanded skill information inside the same blur-backed modal system."
+        subtitle="Expanded skill information, including topic descriptions, inside the same blur-backed modal system."
         sections={skillSections}
       />
 

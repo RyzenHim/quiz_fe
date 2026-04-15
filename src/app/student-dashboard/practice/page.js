@@ -1,18 +1,18 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { BookOpenCheck, RefreshCcw } from "lucide-react";
+import { ArrowUpRight, BookOpenCheck } from "lucide-react";
 import { useAppContext } from "../../../components/app-provider";
 import api from "../../../lib/api";
 
 export default function PracticeQuizPage() {
   const { auth } = useAppContext();
-  const [topics, setTopics] = useState([]);
-  const [selectedTopicKey, setSelectedTopicKey] = useState("");
-  const [questions, setQuestions] = useState([]);
-  const [answers, setAnswers] = useState({});
+  const [alignedCourses, setAlignedCourses] = useState([]);
+  const [selectedCourseId, setSelectedCourseId] = useState("");
+  const [selectedSkillId, setSelectedSkillId] = useState("");
+  const [selectedTopicId, setSelectedTopicId] = useState("");
   const [loadingTopics, setLoadingTopics] = useState(true);
-  const [loadingQuestions, setLoadingQuestions] = useState(false);
+  const [launching, setLaunching] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -26,228 +26,222 @@ export default function PracticeQuizPage() {
         },
       });
 
-      setTopics(response.data.topics || []);
+      setAlignedCourses(response.data.alignedCourses || []);
       setLoadingTopics(false);
     };
 
     load().catch(() => setLoadingTopics(false));
   }, [auth?.token]);
 
-  const selectedTopic = useMemo(
-    () => topics.find((topic) => `${topic.skill._id}:${topic._id}` === selectedTopicKey),
-    [selectedTopicKey, topics]
+  const selectedCourse = useMemo(
+    () => alignedCourses.find((course) => course._id === selectedCourseId),
+    [alignedCourses, selectedCourseId]
   );
 
-  const totalAnswered = useMemo(
-    () =>
-      questions.filter((question) => {
-        const currentAnswer = answers[question._id];
-        if (!currentAnswer) {
-          return false;
-        }
+  const availableSkills = useMemo(() => selectedCourse?.skills || [], [selectedCourse]);
 
-        if (question.type === "short_answer") {
-          return Boolean(currentAnswer.answerText?.trim());
-        }
-
-        return (currentAnswer.selectedOptionIds || []).length > 0;
-      }).length,
-    [answers, questions]
+  const selectedSkill = useMemo(
+    () => availableSkills.find((skill) => skill._id === selectedSkillId),
+    [availableSkills, selectedSkillId]
   );
 
-  const loadPracticeQuestions = async () => {
-    if (!selectedTopic || !auth?.token) {
+  const availableTopics = useMemo(() => selectedSkill?.topics || [], [selectedSkill]);
+  const selectedTopic = useMemo(() => availableTopics.find((topic) => topic._id === selectedTopicId), [
+    availableTopics,
+    selectedTopicId,
+  ]);
+
+  const practiceSummary = useMemo(() => {
+    if (!selectedCourse) {
+      return "Choose a course to preview the practice pool.";
+    }
+
+    if (selectedTopic && selectedSkill) {
+      return `Questions will be randomly shown only from the ${selectedTopic.title} topic inside the ${selectedSkill.name} skill for ${selectedCourse.title}.`;
+    }
+
+    if (selectedSkill) {
+      return `Questions will be randomly shown from any topic inside the ${selectedSkill.name} skill for ${selectedCourse.title}.`;
+    }
+
+    return `Questions will be randomly shown from any aligned skill and any aligned topic inside ${selectedCourse.title}.`;
+  }, [selectedCourse, selectedSkill, selectedTopic]);
+
+  const handleLaunchPractice = () => {
+    if (!selectedCourse) {
       return;
     }
 
-    setLoadingQuestions(true);
+    setLaunching(true);
 
-    try {
-      const response = await api.get("/student/practice/questions", {
-        params: {
-          topicId: selectedTopic._id,
-          skillId: selectedTopic.skill._id,
-        },
-        headers: {
-          Authorization: `Bearer ${auth.token}`,
-        },
-      });
+    const params = new URLSearchParams({
+      courseId: selectedCourse._id,
+    });
 
-      setQuestions(response.data.questions || []);
-      setAnswers({});
-    } finally {
-      setLoadingQuestions(false);
+    if (selectedSkill) {
+      params.set("skillId", selectedSkill._id);
     }
+
+    if (selectedTopic) {
+      params.set("topicId", selectedTopic._id);
+    }
+
+    window.open(`/student-practice?${params.toString()}`, "_blank", "noopener,noreferrer");
+    window.setTimeout(() => setLaunching(false), 250);
   };
 
   return (
     <div className="space-y-6">
       <section className="surface-card rounded-[28px] p-8">
         <p className="text-sm uppercase tracking-[0.28em] text-[var(--accent)]">Practice Quiz</p>
-        <h2 className="mt-3 text-4xl font-semibold">Practice by topic from your batch courses</h2>
+        <h2 className="mt-3 text-4xl font-semibold">Launch a focused practice window from your aligned learning map</h2>
         <p className="mt-3 max-w-3xl text-sm text-[var(--muted)]">
-          Topics are loaded from the skills attached to the courses aligned with your batch.
-          Pick a topic and the backend will return matching practice questions.
+          Pick a course first, then optionally narrow it by skill and topic. The practice session opens
+          in a separate page and shows one question at a time with answer submission and feedback.
         </p>
       </section>
 
-      <div className="grid gap-6 xl:grid-cols-[0.82fr_1.18fr]">
+      <div className="grid gap-6 xl:grid-cols-[0.88fr_1.12fr]">
         <section className="surface-card rounded-[24px] p-6">
-          <h3 className="text-2xl font-semibold">Choose a topic</h3>
+          <h3 className="text-2xl font-semibold">Choose your practice scope</h3>
           <p className="mt-2 text-sm text-[var(--muted)]">
-            Practice is scoped to topics you are actually studying.
+            Students only see courses, skills, and topics aligned to their current batch.
           </p>
 
           {loadingTopics ? (
-            <p className="mt-6 text-sm text-[var(--muted)]">Loading topics...</p>
+            <p className="mt-6 text-sm text-[var(--muted)]">Loading aligned learning map...</p>
           ) : (
-            <>
-              <div className="mt-6">
-                <label className="mb-2 block text-sm font-medium">Available topics</label>
+            <div className="mt-6 space-y-4">
+              <div>
+                <label className="mb-2 block text-sm font-medium">Aligned course</label>
                 <select
-                  value={selectedTopicKey}
-                  onChange={(event) => setSelectedTopicKey(event.target.value)}
+                  value={selectedCourseId}
+                  onChange={(event) => {
+                    setSelectedCourseId(event.target.value);
+                    setSelectedSkillId("");
+                    setSelectedTopicId("");
+                  }}
                   className="w-full rounded-2xl border border-[var(--border)] bg-[var(--surface-strong)] px-4 py-3"
                 >
-                  <option value="">Select topic</option>
-                  {topics.map((topic) => (
-                    <option key={`${topic.skill._id}:${topic._id}`} value={`${topic.skill._id}:${topic._id}`}>
-                      {topic.title} | {topic.skill.name}
+                  <option value="">Select course</option>
+                  {alignedCourses.map((course) => (
+                    <option key={course._id} value={course._id}>
+                      {course.title}
                     </option>
                   ))}
                 </select>
               </div>
 
-              {selectedTopic ? (
-                <div className="mt-5 rounded-[20px] border border-[var(--border)] p-5">
-                  <p className="text-lg font-semibold">{selectedTopic.title}</p>
+              <div>
+                <label className="mb-2 block text-sm font-medium">Aligned skill</label>
+                <select
+                  value={selectedSkillId}
+                  disabled={!selectedCourse}
+                  onChange={(event) => {
+                    setSelectedSkillId(event.target.value);
+                    setSelectedTopicId("");
+                  }}
+                  className="w-full rounded-2xl border border-[var(--border)] bg-[var(--surface-strong)] px-4 py-3 disabled:opacity-60"
+                >
+                  <option value="">Any skill from this course</option>
+                  {availableSkills.map((skill) => (
+                    <option key={skill._id} value={skill._id}>
+                      {skill.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-medium">Aligned topic</label>
+                <select
+                  value={selectedTopicId}
+                  disabled={!selectedSkill}
+                  onChange={(event) => {
+                    setSelectedTopicId(event.target.value);
+                  }}
+                  className="w-full rounded-2xl border border-[var(--border)] bg-[var(--surface-strong)] px-4 py-3 disabled:opacity-60"
+                >
+                  <option value="">Any topic from this skill</option>
+                  {availableTopics.map((topic) => (
+                    <option key={topic._id} value={topic._id}>
+                      {topic.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {selectedCourse ? (
+                <div className="rounded-[20px] border border-[var(--border)] p-5">
+                  <p className="text-lg font-semibold">Practice scope preview</p>
                   <p className="mt-2 text-sm text-[var(--muted)]">
-                    Skill: {selectedTopic.skill.name}
+                    Course: {selectedCourse.title}
                   </p>
                   <p className="mt-2 text-sm text-[var(--muted)]">
-                    {selectedTopic.description || "No topic description provided."}
+                    Skill: {selectedSkill?.name || "Any skill aligned to this course"}
                   </p>
+                  <p className="mt-2 text-sm text-[var(--muted)]">
+                    Topic: {selectedTopic?.title || "Any topic aligned to this selection"}
+                  </p>
+                  <p className="mt-4 text-sm text-[var(--muted)]">{practiceSummary}</p>
+
+                  <div className="mt-5 space-y-3 text-sm text-[var(--muted)]">
+                    <div className="rounded-2xl bg-[var(--accent)]/8 px-4 py-3">
+                      <p className="font-medium text-[var(--accent)]">Course description</p>
+                      <p className="mt-1">{selectedCourse.description || "No course description provided."}</p>
+                    </div>
+
+                    {selectedSkill ? (
+                      <div className="rounded-2xl bg-[var(--surface-strong)] px-4 py-3">
+                        <p className="font-medium text-[var(--foreground)]">Skill description</p>
+                        <p className="mt-1">{selectedSkill.description || "No skill description provided."}</p>
+                      </div>
+                    ) : null}
+
+                    {selectedTopic ? (
+                      <div className="rounded-2xl bg-[var(--surface-strong)] px-4 py-3">
+                        <p className="font-medium text-[var(--foreground)]">Topic description</p>
+                        <p className="mt-1">{selectedTopic.description || "No topic description provided."}</p>
+                      </div>
+                    ) : null}
+                  </div>
                 </div>
               ) : null}
 
               <button
                 type="button"
-                onClick={loadPracticeQuestions}
-                disabled={!selectedTopic || loadingQuestions}
-                className="mt-6 w-full rounded-2xl bg-[var(--accent)] px-4 py-3 font-semibold text-white disabled:opacity-60"
+                onClick={handleLaunchPractice}
+                disabled={!selectedCourse || launching}
+                className="w-full rounded-2xl bg-[var(--accent)] px-4 py-3 font-semibold text-white disabled:opacity-60"
               >
-                {loadingQuestions ? "Loading practice set..." : "Load practice quiz"}
+                <span className="inline-flex items-center gap-2">
+                  {launching ? "Opening practice window..." : "Load practice quiz"}
+                  <ArrowUpRight size={16} />
+                </span>
               </button>
-            </>
+            </div>
           )}
         </section>
 
         <section className="space-y-5">
           <div className="surface-card rounded-[24px] p-6">
-            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-              <div>
-                <h3 className="text-2xl font-semibold">Practice set</h3>
-                <p className="mt-2 text-sm text-[var(--muted)]">
-                  Answer the questions for revision. Short-answer items are open practice prompts.
-                </p>
-              </div>
-              <div className="flex items-center gap-3">
-                <span className="rounded-full bg-[var(--accent)]/15 px-3 py-2 text-sm text-[var(--accent)]">
-                  Answered {totalAnswered}/{questions.length}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setAnswers({})}
-                  disabled={questions.length === 0}
-                  className="rounded-2xl border border-[var(--border)] px-4 py-3 text-sm font-medium disabled:opacity-60"
-                >
-                  <span className="inline-flex items-center gap-2">
-                    <RefreshCcw size={16} />
-                    Reset
-                  </span>
-                </button>
-              </div>
+            <div className="inline-flex items-center gap-2 rounded-full bg-[var(--accent)]/10 px-3 py-2 text-sm text-[var(--accent)]">
+              <BookOpenCheck size={16} />
+              Practice behavior
+            </div>
+            <h3 className="mt-4 text-2xl font-semibold">How the new practice flow works</h3>
+            <div className="mt-4 space-y-4 text-sm text-[var(--muted)]">
+              <p>If only the course is selected, questions are randomly picked from any aligned skill and topic in that course.</p>
+              <p>If the course and skill are selected, questions are randomly picked only from that skill inside the selected course.</p>
+              <p>If course, skill, and topic are selected, questions are filtered all the way down to that exact topic.</p>
+              <p>The practice window shows one question at a time with only the question, its options, and a submit answer button.</p>
+              <p>If the answer is correct, the student sees a success message. If the answer is wrong, the correct answer and explanation are shown immediately.</p>
             </div>
           </div>
 
-          {questions.length === 0 ? (
-            <div className="surface-card rounded-[24px] p-8 text-sm text-[var(--muted)]">
-              Select a topic and load questions to start practicing.
-            </div>
-          ) : (
-            questions.map((question, index) => (
-              <div key={question._id} className="surface-card rounded-[24px] p-6">
-                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                  <div>
-                    <p className="text-sm uppercase tracking-[0.22em] text-[var(--accent)]">
-                      Practice Question {index + 1}
-                    </p>
-                    <h4 className="mt-2 text-xl font-semibold">{question.questionText}</h4>
-                  </div>
-                  <span className="rounded-full bg-[var(--accent)]/15 px-3 py-2 text-sm text-[var(--accent)]">
-                    {question.skill?.name || "Skill"} | {question.marks} marks
-                  </span>
-                </div>
-
-                <p className="mt-3 text-sm text-[var(--muted)]">
-                  Topic: {question.topicTitle} | Difficulty: {question.difficulty}
-                </p>
-
-                <div className="mt-5 space-y-3">
-                  {question.type === "short_answer" ? (
-                    <textarea
-                      value={answers[question._id]?.answerText || ""}
-                      onChange={(event) =>
-                        setAnswers((current) => ({
-                          ...current,
-                          [question._id]: {
-                            answerText: event.target.value,
-                            selectedOptionIds: [],
-                          },
-                        }))
-                      }
-                      rows={4}
-                      className="w-full rounded-2xl border border-[var(--border)] bg-[var(--surface-strong)] px-4 py-3"
-                      placeholder="Write your practice answer"
-                    />
-                  ) : (
-                    question.options.map((option) => (
-                      <label
-                        key={option._id}
-                        className="flex items-start gap-3 rounded-2xl border border-[var(--border)] px-4 py-4"
-                      >
-                        <input
-                          type="radio"
-                          name={`practice-question-${question._id}`}
-                          checked={(answers[question._id]?.selectedOptionIds || []).includes(option._id)}
-                          onChange={() => {
-                            setAnswers((current) => ({
-                              ...current,
-                              [question._id]: {
-                                selectedOptionIds: [option._id],
-                                answerText: "",
-                              },
-                            }));
-                          }}
-                        />
-                        <span className="text-sm">{option.text}</span>
-                      </label>
-                    ))
-                  )}
-                </div>
-
-                {question.explanation ? (
-                  <div className="mt-5 rounded-[20px] bg-[var(--accent)]/8 p-4">
-                    <p className="inline-flex items-center gap-2 text-sm font-medium text-[var(--accent)]">
-                      <BookOpenCheck size={16} />
-                      Explanation
-                    </p>
-                    <p className="mt-2 text-sm text-[var(--muted)]">{question.explanation}</p>
-                  </div>
-                ) : null}
-              </div>
-            ))
-          )}
+          <div className="surface-card rounded-[24px] p-6 text-sm text-[var(--muted)]">
+            {selectedCourse ? practiceSummary : "Select a course to preview the question pool before launching practice."}
+          </div>
         </section>
       </div>
     </div>
