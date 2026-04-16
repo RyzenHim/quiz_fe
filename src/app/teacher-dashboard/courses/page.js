@@ -95,6 +95,19 @@ export default function CoursesPage() {
     setForm(emptyForm);
   };
 
+  const toggleSkillSelection = (skillId) => {
+    setForm((current) => {
+      const alreadySelected = current.skills.includes(skillId);
+
+      return {
+        ...current,
+        skills: alreadySelected
+          ? current.skills.filter((id) => id !== skillId)
+          : [...current.skills, skillId],
+      };
+    });
+  };
+
   const handleEdit = (course) => {
     setEditingId(course._id);
     setForm({
@@ -168,7 +181,15 @@ export default function CoursesPage() {
           title="Build aligned course structures"
           description="Skills and course metadata now sit behind a polished modal flow, with a clearer confirmation step before destructive actions."
           action={
-            <button type="button" className="neo-button-primary" onClick={() => setModalOpen(true)}>
+            <button
+              type="button"
+              className="neo-button-primary"
+              onClick={() => {
+                setEditingId(null);
+                setForm(emptyForm);
+                setModalOpen(true);
+              }}
+            >
               <Plus size={18} />
               Add Course
             </button>
@@ -259,7 +280,7 @@ export default function CoursesPage() {
         open={modalOpen}
         onClose={closeModal}
         title={editingId ? "Edit course" : "Create course"}
-        subtitle="Map course structure, level, and linked skills in one focused modal."
+        subtitle="Map course structure, level, and link one or more skills in one focused modal."
         footer={
           <button type="submit" form="course-form" className="neo-button-primary">
             {editingId ? "Update Course" : "Create Course"}
@@ -289,23 +310,52 @@ export default function CoursesPage() {
             <option value="intermediate">Intermediate</option>
             <option value="advanced">Advanced</option>
           </SelectField>
-          <SelectField
-            label="Skills"
-            value={form.skills}
-            multiple
-            onChange={(event) =>
-              setForm({
-                ...form,
-                skills: Array.from(event.target.selectedOptions, (option) => option.value),
-              })
-            }
-          >
-            {skills.map((skill) => (
-              <option key={skill._id} value={skill._id}>
-                {skill.name}
-              </option>
-            ))}
-          </SelectField>
+          <div className="md:col-span-2">
+            <label className="block">
+              <span className="mb-2 block text-sm font-medium">Skills</span>
+              <div className="rounded-[1rem] border border-[var(--border)] bg-white/20 p-3 backdrop-blur-md dark:bg-white/5">
+                {skills.length === 0 ? (
+                  <p className="text-sm text-[var(--muted)]">Create skills first to attach them to this course.</p>
+                ) : (
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {skills.map((skill) => {
+                      const selected = form.skills.includes(skill._id);
+
+                      return (
+                        <button
+                          key={skill._id}
+                          type="button"
+                          onClick={() => toggleSkillSelection(skill._id)}
+                          className={`flex min-h-[3.25rem] items-center justify-between rounded-[0.95rem] border px-4 py-3 text-left text-sm transition ${
+                            selected
+                              ? "border-[var(--accent)] bg-[var(--accent)]/12 text-[var(--accent)]"
+                              : "border-[var(--border)] bg-transparent text-[var(--foreground)] hover:border-[var(--accent)]/40"
+                          }`}
+                        >
+                          <span className="truncate pr-3 font-medium">{skill.name}</span>
+                          <span
+                            className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[11px] ${
+                              selected
+                                ? "border-[var(--accent)] bg-[var(--accent)] text-white"
+                                : "border-[var(--border)] text-[var(--muted)]"
+                            }`}
+                          >
+                            {selected ? "Y" : "+"}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+
+                <p className="mt-3 text-sm text-[var(--muted)]">
+                  {form.skills.length > 0
+                    ? `${form.skills.length} skill${form.skills.length > 1 ? "s" : ""} selected`
+                    : "Select one or more skills for this course."}
+                </p>
+              </div>
+            </label>
+          </div>
         </form>
       </Modal>
 

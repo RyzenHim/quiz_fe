@@ -22,7 +22,6 @@ import {
 const emptyForm = {
   name: "",
   email: "",
-  password: "",
   batch: "",
   enrollmentNumber: "",
   phone: "",
@@ -341,7 +340,6 @@ export default function StudentsPage() {
     setForm({
       name: student.name || "",
       email: student.email || "",
-      password: "",
       batch: student.batch?._id || "",
       enrollmentNumber: student.enrollmentNumber || "",
       phone: student.phone || "",
@@ -354,7 +352,7 @@ export default function StudentsPage() {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    const payload = editingId && !form.password ? { ...form, password: undefined } : form;
+    const payload = { ...form };
 
     try {
       if (editingId) {
@@ -700,7 +698,11 @@ export default function StudentsPage() {
         open={modalOpen}
         onClose={closeModal}
         title={editingId ? "Edit student" : "Add student"}
-        subtitle="Student creation and editing now follows the same cleaner section-based structure."
+        subtitle={
+          editingId
+            ? "Update student profile details here."
+            : "A secure random password will be generated automatically and emailed to the student."
+        }
         footer={
           <button type="submit" form="student-form" className="neo-button-primary">
             {editingId ? "Update Student" : "Create Student"}
@@ -715,12 +717,6 @@ export default function StudentsPage() {
             type="email"
             value={form.email}
             onChange={(value) => setForm({ ...form, email: value })}
-          />
-          <InputField
-            label={editingId ? "Password (optional)" : "Password"}
-            type="password"
-            value={form.password}
-            onChange={(value) => setForm({ ...form, password: value })}
           />
           <InputField
             label="Enrollment Number"
