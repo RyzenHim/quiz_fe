@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { CheckCircle2, History, Trophy, XCircle } from "lucide-react";
 import { useAppContext } from "../../../components/app-provider";
 import { getCached } from "../../../lib/api";
+import { SectionLoader } from "../../../components/loaders";
 
 export default function StudentResultsPage() {
   const { auth } = useAppContext();
@@ -38,7 +39,12 @@ export default function StudentResultsPage() {
   }, [auth?.token]);
 
   if (!quizData || !practiceData) {
-    return <div className="surface-card rounded-[24px] p-6">{message}</div>;
+    return (
+      <SectionLoader
+        title="Loading results"
+        description={message || "Collecting your latest quiz and practice performance."}
+      />
+    );
   }
 
   const cards = [

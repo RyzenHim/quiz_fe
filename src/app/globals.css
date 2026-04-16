@@ -168,8 +168,42 @@ a {
   backdrop-filter: blur(8px);
 }
 
+.neo-input::placeholder {
+  color: var(--muted);
+}
+
 .neo-input:focus {
   border-color: color-mix(in srgb, var(--accent) 42%, transparent);
+}
+
+html.dark .neo-input {
+  background: rgba(17, 29, 46, 0.82);
+}
+
+select.neo-input {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  padding-right: 2.75rem;
+  color-scheme: light;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--muted) 50%),
+    linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position:
+    calc(100% - 1.15rem) calc(50% - 0.14rem),
+    calc(100% - 0.75rem) calc(50% - 0.14rem);
+  background-size: 0.45rem 0.45rem, 0.45rem 0.45rem;
+  background-repeat: no-repeat;
+}
+
+html.dark select.neo-input {
+  color-scheme: dark;
+}
+
+select.neo-input option,
+select.neo-input optgroup {
+  background-color: var(--surface-strong);
+  color: var(--foreground);
 }
 
 .neo-icon {
@@ -403,6 +437,75 @@ button {
 
 .smooth-scroll {
   scroll-behavior: smooth;
+}
+
+.loading-orbit {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  animation: loaderFloat 2.2s ease-in-out infinite;
+}
+
+.loading-orbit-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  border: 2px solid color-mix(in srgb, var(--accent) 28%, transparent);
+  border-top-color: color-mix(in srgb, var(--accent) 86%, transparent);
+  animation: loaderSpin 1s linear infinite;
+}
+
+.loading-orbit-dot {
+  position: absolute;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+  box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent) 14%, transparent);
+  transform: translateY(-170%);
+  animation: loaderPulse 1.2s ease-in-out infinite;
+}
+
+.loading-orbit-dot-delay {
+  transform: translateY(170%);
+  animation-delay: 0.45s;
+}
+
+.loading-button-spinner {
+  width: 1rem;
+  height: 1rem;
+  border-radius: 999px;
+  border: 2px solid rgba(255, 255, 255, 0.32);
+  border-top-color: white;
+  animation: loaderSpin 0.75s linear infinite;
+}
+
+@keyframes loaderSpin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes loaderPulse {
+  0%, 100% {
+    opacity: 0.72;
+    scale: 0.92;
+  }
+  50% {
+    opacity: 1;
+    scale: 1.08;
+  }
+}
+
+@keyframes loaderFloat {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
 }
 
 @media (max-width: 767px) {

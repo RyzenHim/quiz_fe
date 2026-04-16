@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
 import { CheckCircle2, CircleX } from "lucide-react";
 import { useAppContext } from "../../../../../components/app-provider";
 import api from "../../../../../lib/api";
+import { SectionLoader } from "../../../../../components/loaders";
 
 export default function StudentQuizResultPage() {
   const params = useParams();
@@ -35,7 +36,12 @@ export default function StudentQuizResultPage() {
   }, [auth?.token, params?.id]);
 
   if (!attempt) {
-    return <div className="surface-card rounded-[24px] p-6">{message}</div>;
+    return (
+      <SectionLoader
+        title="Loading quiz result"
+        description={message || "Evaluating your answers and preparing the result view."}
+      />
+    );
   }
 
   const quiz = attempt.quizAssignment;

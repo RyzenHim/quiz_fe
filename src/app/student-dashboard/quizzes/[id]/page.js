@@ -6,6 +6,7 @@ import { useParams, useRouter } from "next/navigation";
 import { AlarmClock, BookOpenText, CircleHelp, Layers3, UserSquare2 } from "lucide-react";
 import { useAppContext } from "../../../../components/app-provider";
 import { getCached } from "../../../../lib/api";
+import { SectionLoader } from "../../../../components/loaders";
 
 const formatDateTime = (value) => {
   if (!value) {
@@ -50,7 +51,12 @@ export default function StudentQuizDetailPage() {
   }, [quiz]);
 
   if (loading) {
-    return <div className="surface-card rounded-[24px] p-6">Loading quiz details...</div>;
+    return (
+      <SectionLoader
+        title="Loading quiz details"
+        description="Bringing in instructions, topics, and question overview."
+      />
+    );
   }
 
   if (!quiz) {

@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { BookOpen, Clock3, FileText, Layers3, Target } from "lucide-react";
 import { useAppContext } from "../../components/app-provider";
 import { getCached } from "../../lib/api";
+import { SectionLoader } from "../../components/loaders";
 
 const formatDateTime = (value) => {
   if (!value) {
@@ -47,7 +48,12 @@ export default function StudentDashboard() {
   }, [auth?.token, updateAuthUser]);
 
   if (loading) {
-    return <div className="surface-card rounded-[24px] p-6">Loading dashboard...</div>;
+    return (
+      <SectionLoader
+        title="Loading dashboard"
+        description="Pulling your batch, quizzes, and practice activity."
+      />
+    );
   }
 
   if (!dashboard) {

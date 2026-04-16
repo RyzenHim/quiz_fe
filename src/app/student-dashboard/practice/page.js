@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ArrowUpRight, BookOpenCheck } from "lucide-react";
 import { useAppContext } from "../../../components/app-provider";
 import api from "../../../lib/api";
+import { ButtonLoader, SectionLoader } from "../../../components/loaders";
 
 export default function PracticeQuizPage() {
   const { auth } = useAppContext();
@@ -109,7 +110,13 @@ export default function PracticeQuizPage() {
           </p>
 
           {loadingTopics ? (
-            <p className="mt-6 text-sm text-[var(--muted)]">Loading aligned learning map...</p>
+            <div className="mt-6">
+              <SectionLoader
+                compact
+                title="Loading aligned learning map"
+                description="Preparing your course, skill, and topic options."
+              />
+            </div>
           ) : (
             <div className="mt-6 space-y-4">
               <div>
@@ -215,8 +222,14 @@ export default function PracticeQuizPage() {
                 className="w-full rounded-2xl bg-[var(--accent)] px-4 py-3 font-semibold text-white disabled:opacity-60"
               >
                 <span className="inline-flex items-center gap-2">
-                  {launching ? "Opening practice window..." : "Load practice quiz"}
-                  <ArrowUpRight size={16} />
+                  {launching ? (
+                    <ButtonLoader label="Opening practice window..." />
+                  ) : (
+                    <>
+                      Load practice quiz
+                      <ArrowUpRight size={16} />
+                    </>
+                  )}
                 </span>
               </button>
             </div>

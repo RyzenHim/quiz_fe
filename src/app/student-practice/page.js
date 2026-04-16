@@ -5,6 +5,7 @@ import { CheckCircle2, ChevronRight, CircleX, RotateCcw } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAppContext } from "../../components/app-provider";
 import api from "../../lib/api";
+import { ButtonLoader, SectionLoader } from "../../components/loaders";
 
 function StudentPracticeSessionContent() {
   const router = useRouter();
@@ -154,7 +155,14 @@ function StudentPracticeSessionContent() {
   };
 
   if (loading) {
-    return <div className="mx-auto max-w-4xl p-6">Loading practice session...</div>;
+    return (
+      <div className="mx-auto max-w-4xl p-6">
+        <SectionLoader
+          title="Loading practice session"
+          description="Shuffling questions and building your focused practice set."
+        />
+      </div>
+    );
   }
 
   if (isComplete) {
@@ -340,7 +348,7 @@ function StudentPracticeSessionContent() {
               disabled={!canSubmit || evaluating}
               className="mt-6 rounded-2xl bg-[var(--accent)] px-4 py-3 font-semibold text-white disabled:opacity-60"
             >
-              {evaluating ? "Submitting answer..." : "Submit answer"}
+              {evaluating ? <ButtonLoader label="Submitting answer..." /> : "Submit answer"}
             </button>
           )}
         </div>
@@ -351,7 +359,16 @@ function StudentPracticeSessionContent() {
 
 export default function StudentPracticeSessionPage() {
   return (
-    <Suspense fallback={<div className="mx-auto max-w-4xl p-6">Loading practice session...</div>}>
+    <Suspense
+      fallback={
+        <div className="mx-auto max-w-4xl p-6">
+          <SectionLoader
+            title="Loading practice session"
+            description="Preparing your practice filters and question flow."
+          />
+        </div>
+      }
+    >
       <StudentPracticeSessionContent />
     </Suspense>
   );

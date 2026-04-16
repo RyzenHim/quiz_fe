@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import api from "../lib/api";
+import { FullScreenLoader } from "./loaders";
 
 const AppContext = createContext(null);
 
@@ -117,6 +118,16 @@ export function AppProvider({ children }) {
       applyTheme(fallbackTheme);
     }
   };
+
+  if (!isReady) {
+    return (
+      <FullScreenLoader
+        eyebrow="Quiz App"
+        title="Loading your learning workspace"
+        description="Restoring your session, theme, and dashboard state."
+      />
+    );
+  }
 
   return (
     <AppContext.Provider

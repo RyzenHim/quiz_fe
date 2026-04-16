@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { CalendarClock, Layers3 } from "lucide-react";
 import { useAppContext } from "../../../components/app-provider";
 import api from "../../../lib/api";
+import { SectionLoader } from "../../../components/loaders";
 
 const formatDateTime = (value) => {
   if (!value) {
@@ -39,7 +40,12 @@ export default function UpcomingQuizzesPage() {
   }, [auth?.token]);
 
   if (loading) {
-    return <div className="surface-card rounded-[24px] p-6">Loading upcoming quizzes...</div>;
+    return (
+      <SectionLoader
+        title="Loading upcoming quizzes"
+        description="Checking scheduled quizzes assigned to your batch."
+      />
+    );
   }
 
   return (
