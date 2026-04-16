@@ -2,9 +2,10 @@ import axios from "axios";
 
 const api = axios.create({
   baseURL:
-    process.env.NEXT_PUBLIC_API_BASE_URL ||
-    "https://quiz-be-k7hj.onrender.com" ||
-    "http://localhost:8000",
+    // process.env.NEXT_PUBLIC_API_BASE_URL ||
+    "https://quiz-be-k7hj.onrender.com",
+  // ||
+  // "http://localhost:8000",
 });
 
 const responseCache = new Map();
