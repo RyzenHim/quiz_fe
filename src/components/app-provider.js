@@ -1,6 +1,12 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
 import api from "../lib/api";
 import { FullScreenLoader } from "./loaders";
 
@@ -44,19 +50,22 @@ export function AppProvider({ children }) {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(nextAuth));
   }, []);
 
-  const login = useCallback((payload) => {
-    const nextAuth = {
-      token: payload.token,
-      role: payload.role,
-      user: payload.user,
-      landingPath: payload.landingPath,
-      themePreference: payload.themePreference || "light",
-    };
+  const login = useCallback(
+    (payload) => {
+      const nextAuth = {
+        token: payload.token,
+        role: payload.role,
+        user: payload.user,
+        landingPath: payload.landingPath,
+        themePreference: payload.themePreference || "light",
+      };
 
-    persistAuth(nextAuth);
-    setTheme(nextAuth.themePreference);
-    applyTheme(nextAuth.themePreference);
-  }, [persistAuth]);
+      persistAuth(nextAuth);
+      setTheme(nextAuth.themePreference);
+      applyTheme(nextAuth.themePreference);
+    },
+    [persistAuth],
+  );
 
   const logout = () => {
     setAuth(null);
@@ -100,7 +109,7 @@ export function AppProvider({ children }) {
           headers: {
             Authorization: `Bearer ${auth.token}`,
           },
-        }
+        },
       );
 
       const nextAuth = {

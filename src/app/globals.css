@@ -407,6 +407,14 @@ button {
   font: inherit;
 }
 
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
 .dashboard-desktop-shell {
   display: grid;
   grid-template-columns: 88px minmax(0, 1fr);

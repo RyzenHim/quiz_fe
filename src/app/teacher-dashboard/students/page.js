@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Eye, Pencil, Plus, RotateCcw, Trash2, Users, Layers3, Archive } from "lucide-react";
 import { useAppContext } from "../../../components/app-provider";
 import api from "../../../lib/api";
+import { ButtonLoader } from "../../../components/loaders";
 import {
   ConfirmDialog,
   DetailModal,
@@ -23,7 +24,6 @@ const emptyForm = {
   name: "",
   email: "",
   passwordMode: "email_random",
-  password: "",
   batch: "",
   enrollmentNumber: "",
   phone: "",
@@ -190,6 +190,8 @@ export default function StudentsPage() {
   const [form, setForm] = useState(emptyForm);
   const [editingId, setEditingId] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [fallbackPassword, setFallbackPassword] = useState(null);
   const [deleteState, setDeleteState] = useState(null);
   const [toast, setToast] = useState(null);
   const [activePanel, setActivePanel] = useState("all");
@@ -319,6 +321,7 @@ export default function StudentsPage() {
   const closeModal = () => {
     setModalOpen(false);
     setEditingId(null);
+    setIsSubmitting(false);
     setForm(emptyForm);
   };
 
@@ -343,7 +346,6 @@ export default function StudentsPage() {
       name: student.name || "",
       email: student.email || "",
       passwordMode: "email_random",
-      password: "",
       batch: student.batch?._id || "",
       enrollmentNumber: student.enrollmentNumber || "",
       phone: student.phone || "",
@@ -356,25 +358,49 @@ export default function StudentsPage() {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
+    if (isSubmitting) {
+      return;
+    }
+
     const payload = { ...form };
 
     if (editingId) {
       delete payload.passwordMode;
-      delete payload.password;
     }
 
     try {
+      setIsSubmitting(true);
+
       if (editingId) {
         await api.put(`/students/${editingId}`, payload, { headers });
         setToast({ variant: "success", title: "Student updated" });
       } else {
-        await api.post("/students", payload, { headers });
-        setToast({ variant: "success", title: "Student created" });
+        const response = await api.post("/students", payload, { headers });
+
+        if (form.passwordMode === "manual_random" && response.data.temporaryPassword) {
+          setFallbackPassword({
+            studentName: response.data.student?.name || form.name,
+            email: response.data.student?.email || form.email,
+            password: response.data.temporaryPassword,
+            mode: form.passwordMode,
+          });
+          setToast({
+            variant: "success",
+            title: "Student created with random password",
+            description: "The generated password is shown in a separate modal so you can share it manually.",
+          });
+        } else {
+          setToast({
+            variant: "success",
+            title: response.data.mailSent ? "Student created and password emailed" : "Student created",
+          });
+        }
       }
 
       closeModal();
       await refreshLists();
     } catch (error) {
+      setIsSubmitting(false);
       setToast({
         variant: "error",
         title: "Unable to save student",
@@ -710,13 +736,24 @@ export default function StudentsPage() {
         subtitle={
           editingId
             ? "Update student profile details here."
-            : form.passwordMode === "teacher_set"
-              ? "Set the student's initial password here before creating the account."
+            : form.passwordMode === "manual_random"
+              ? "A random password will be generated and shown to you for manual sharing."
               : "A secure random password will be generated automatically and emailed to the student."
         }
         footer={
-          <button type="submit" form="student-form" className="neo-button-primary">
-            {editingId ? "Update Student" : "Create Student"}
+          <button
+            type="submit"
+            form="student-form"
+            disabled={isSubmitting}
+            className="neo-button-primary"
+          >
+            {isSubmitting ? (
+              <ButtonLoader label={editingId ? "Saving..." : "Creating..."} />
+            ) : editingId ? (
+              "Update Student"
+            ) : (
+              "Create Student"
+            )}
           </button>
         }
         size="wide"
@@ -735,32 +772,22 @@ export default function StudentsPage() {
               <SegmentedTabs
                 tabs={[
                   { value: "email_random", label: "Send Random Password" },
-                  { value: "teacher_set", label: "Teacher Sets Password" },
+                  { value: "manual_random", label: "Manual Share Random Password" },
                 ]}
                 value={form.passwordMode}
                 onChange={(value) =>
                   setForm((current) => ({
                     ...current,
                     passwordMode: value,
-                    password: value === "teacher_set" ? current.password : "",
                   }))
                 }
               />
               <p className="mt-2 text-sm text-[var(--muted)]">
-                {form.passwordMode === "teacher_set"
-                  ? "The teacher-defined password will be saved directly for the student account."
+                {form.passwordMode === "manual_random"
+                  ? "The server will generate a random password and show it to the teacher for manual sharing."
                   : "A random password will be generated by the server and sent to the student's email address."}
               </p>
             </div>
-          ) : null}
-          {!editingId && form.passwordMode === "teacher_set" ? (
-            <InputField
-              label="Password"
-              type="password"
-              value={form.password}
-              onChange={(value) => setForm({ ...form, password: value })}
-              placeholder="Enter at least 6 characters"
-            />
           ) : null}
           <InputField
             label="Enrollment Number"
@@ -803,6 +830,40 @@ export default function StudentsPage() {
         subtitle="Full student information in the same blurred neumorphic overlay."
         sections={buildStudentSections(selectedStudent)}
       />
+
+      <Modal
+        open={Boolean(fallbackPassword)}
+        onClose={() => setFallbackPassword(null)}
+        title={
+          fallbackPassword?.mode === "manual_random"
+            ? "Share Random Password"
+            : "Password Email Not Sent"
+        }
+        subtitle={
+          fallbackPassword?.mode === "manual_random"
+            ? "The student was created successfully and the generated random password is ready for manual sharing."
+            : "The student was created successfully, but the random password could not be emailed from the server."
+        }
+        footer={
+          <button type="button" className="neo-button-primary" onClick={() => setFallbackPassword(null)}>
+            Done
+          </button>
+        }
+      >
+        <div className="space-y-4">
+          <div className="rounded-[18px] border border-[var(--border)]/60 bg-white/20 p-4 text-sm backdrop-blur-md dark:bg-white/5">
+            <p className="font-semibold">{fallbackPassword?.studentName || "Student"}</p>
+            <p className="mt-1 text-[var(--muted)]">{fallbackPassword?.email || "No email available"}</p>
+          </div>
+          <div className="rounded-[18px] border border-amber-400/30 bg-amber-500/10 p-4">
+            <p className="text-sm font-semibold text-amber-700 dark:text-amber-200">Temporary Password</p>
+            <p className="mt-2 break-all font-mono text-base">{fallbackPassword?.password || ""}</p>
+            <p className="mt-3 text-sm text-[var(--muted)]">
+              Share this password manually with the student and ask them to change it after login.
+            </p>
+          </div>
+        </div>
+      </Modal>
 
       <ConfirmDialog
         open={Boolean(deleteState)}
