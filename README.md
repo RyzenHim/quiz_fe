@@ -1,36 +1,56 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+## Quiz App
 
-## Getting Started
+Quiz App is a full-stack web application for managing **online quizzes, practice sessions, and student performance** in one place. It supports **teacher and student roles**, where teachers can create learning structures and assessments, and students can attempt quizzes, practice by topic, and track their results through dedicated dashboards.
 
-First, run the development server:
+### Features
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+- Teacher and student authentication
+- Login with email or student enrollment number
+- OTP-based forgot password flow
+- Teacher dashboard with analytics and reporting
+- Student dashboard with batch, course, quiz, and practice overview
+- Course, batch, skill, and topic management
+- Student management with batch assignment
+- Question bank with MCQ, True/False, and Short Answer support
+- Question import via manual entry, Excel file, and spreadsheet link
+- Quiz creation and assignment by batch or selected students
+- Timed quiz attempts with result review
+- Topic-based practice mode with instant evaluation
+- Result tracking and performance insights
+- Light and dark theme support with saved user preference
+- Soft delete, restore, and permanent delete flows
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Tech Stack
 
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
+**Frontend**
+- Next.js
+- React
+- Tailwind CSS
+- Axios
+- Lucide React
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+**Backend**
+- Node.js
+- Express.js
+- MongoDB
+- Mongoose
+- JWT
+- bcrypt
+- Nodemailer
+- Multer
+- XLSX
 
-## Learn More
+### Project Structure
 
-To learn more about Next.js, take a look at the following resources:
+- `quiz_fe` - Next.js frontend
+- `quiz_be` - Express and MongoDB backend
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Use Cases
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- Teachers can manage students, courses, batches, skills, questions, and quizzes.
+- Students can view assigned quizzes, attempt timed tests, practice by topic, and monitor progress.
 
-## Deploy on Vercel
+### Highlights
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+This project is designed as a **quiz and learning management platform** that combines **assessment delivery, question management, practice workflows, and analytics** into a single system.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
