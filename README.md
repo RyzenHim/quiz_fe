@@ -54,3 +54,5 @@ Quiz App is a full-stack web application for managing **online quizzes, practice
 
 This project is designed as a **quiz and learning management platform** that combines **assessment delivery, question management, practice workflows, and analytics** into a single system.
 
+id:-yash@example.com
+password:-123456
