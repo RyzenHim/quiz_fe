@@ -10,8 +10,10 @@ import {
   Code2,
   LayoutDashboard,
   LogOut,
+  Menu,
   MoonStar,
   SunMedium,
+  X,
   UserRoundCog,
   Users,
   Layers,
@@ -37,6 +39,7 @@ export function DashboardLayout({ children, role = "teacher" }) {
   const router = useRouter();
   const { auth, logout, theme, toggleTheme, isReady } = useAppContext();
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     if (!isReady) {
@@ -52,6 +55,19 @@ export function DashboardLayout({ children, role = "teacher" }) {
       router.replace(auth.landingPath || "/login");
     }
   }, [auth, isReady, role, router]);
+
+  useEffect(() => {
+    if (!mobileMenuOpen) {
+      return undefined;
+    }
+
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = originalOverflow;
+    };
+  }, [mobileMenuOpen]);
 
   const handleLogout = () => {
     logout();
@@ -193,35 +209,114 @@ export function DashboardLayout({ children, role = "teacher" }) {
       </main>
       </div>
 
-      <main className="min-h-screen overflow-x-hidden p-4 md:hidden">
-        <div className="mx-auto max-w-6xl space-y-4">
-          <div className="neo-panel rounded-[30px] p-6 md:hidden">
-            <div>
-              <p className="text-sm uppercase tracking-[0.28em] text-[var(--accent)]">Teacher Area</p>
-              <h1 className="mt-2 text-3xl font-semibold">{auth?.user?.name || "Teacher"}</h1>
-            </div>
-            <div className="mt-5 grid gap-3 sm:grid-cols-2">
-              {menu.map((item) => {
-                const Icon = item.icon;
-                const isActive = pathname === item.path;
-
-                return (
-                  <Link
-                    key={item.path}
-                    href={item.path}
-                    className={`flex items-center gap-3 rounded-2xl border px-4 py-3 ${
-                      isActive
-                        ? "border-[var(--accent)] bg-[var(--accent)]/10"
-                        : "border-[var(--border)]"
-                    }`}
+      <main className="min-h-screen overflow-x-hidden p-3 md:hidden">
+        <div className="mx-auto max-w-6xl space-y-3">
+          <div className="sticky top-4 z-50 md:hidden">
+            <div className="neo-panel rounded-[24px] px-3.5 py-3">
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-xs uppercase tracking-[0.28em] text-[var(--accent)]">Teacher Area</p>
+                  <h1 className="truncate text-xl font-semibold">{auth?.user?.name || "Teacher"}</h1>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={toggleTheme}
+                    className="neo-button !min-h-[2.75rem] !rounded-[0.9rem] !px-3"
+                    aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
                   >
-                    <Icon size={18} className="text-[var(--accent)]" />
-                    <span className="text-sm font-medium">{item.name}</span>
-                  </Link>
-                );
-              })}
+                    {theme === "dark" ? <SunMedium size={18} /> : <MoonStar size={18} />}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMobileMenuOpen(true)}
+                    className="neo-button !min-h-[2.75rem] !rounded-[0.9rem] !px-3"
+                    aria-label="Open navigation menu"
+                  >
+                    <Menu size={18} />
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
+
+          {mobileMenuOpen ? (
+            <div className="fixed inset-0 z-[80] md:hidden">
+              <button
+                type="button"
+                className="mobile-nav-backdrop absolute inset-0 bg-slate-950/45 backdrop-blur-sm"
+                onClick={() => setMobileMenuOpen(false)}
+                aria-label="Close navigation menu"
+              />
+              <div className="mobile-nav-drawer absolute right-0 top-0 flex h-full w-[min(88vw,22rem)] flex-col border-l border-white/10 bg-[var(--sidebar)] p-4 text-white shadow-2xl">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-[10px] uppercase tracking-[0.32em] text-emerald-200/70">Quiz App</p>
+                    <p className="mt-2 truncate text-lg font-semibold">{auth?.user?.name || "Teacher"}</p>
+                    <p className="text-xs text-slate-300">{auth?.user?.specialization || "Faculty"}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/10"
+                    aria-label="Close navigation menu"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+
+                <nav className="mt-6 flex-1 space-y-2 overflow-y-auto pr-1">
+                  {menu.map((item) => {
+                    const Icon = item.icon;
+                    const isActive = pathname === item.path;
+
+                    return (
+                      <Link
+                        key={item.path}
+                        href={item.path}
+                        onClick={() => setMobileMenuOpen(false)}
+                        className={`flex min-h-[3.25rem] items-center gap-3 rounded-xl px-3 py-3 ${
+                          isActive ? "bg-white/14" : "bg-white/6"
+                        }`}
+                      >
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/10">
+                          <Icon size={17} />
+                        </span>
+                        <span className="text-sm font-medium">{item.name}</span>
+                      </Link>
+                    );
+                  })}
+                </nav>
+
+                <div className="space-y-2 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      toggleTheme();
+                      setMobileMenuOpen(false);
+                    }}
+                    className="flex min-h-[3.25rem] w-full items-center gap-3 rounded-xl border border-white/10 px-3 py-3 text-left"
+                  >
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/10">
+                      {theme === "dark" ? <SunMedium size={17} /> : <MoonStar size={17} />}
+                    </span>
+                    <span className="text-sm font-medium">{theme === "dark" ? "Light mode" : "Dark mode"}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    className="flex min-h-[3.25rem] w-full items-center gap-3 rounded-xl bg-red-500/90 px-3 py-3 text-left"
+                  >
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/10">
+                      <LogOut size={17} />
+                    </span>
+                    <span className="text-sm font-medium">Logout</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : null}
+
           {children}
         </div>
       </main>
